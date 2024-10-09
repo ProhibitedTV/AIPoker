@@ -17,7 +17,7 @@ class PokerGUI(QMainWindow):
         self.showFullScreen()  # Set the application to fullscreen
 
         # Set casino-style background color and font
-        self.setStyleSheet("background-color: green; font-family: Arial; font-size: 18px; color: white;")
+        self.setStyleSheet("background-color: green; font-family: Arial; font-size: 16px; color: white;")
         
         # Main widget and layout
         self.central_widget = QWidget()
@@ -28,25 +28,28 @@ class PokerGUI(QMainWindow):
 
         # Pot label
         self.pot_label = QLabel(f"Pot: {self.game.pot}")
-        self.pot_label.setFont(QFont('Arial', 14))
+        self.pot_label.setFont(QFont('Arial', 10))  # Reduce font size to 10px
+        self.pot_label.setFixedHeight(30)  # Set fixed height to minimize space
         self.pot_label.setAlignment(Qt.AlignCenter)
-        self.pot_label.setStyleSheet("background-color: black; color: white; padding: 10px; border-radius: 10px;")
+        self.pot_label.setStyleSheet("background-color: black; color: white; padding: 2px; border-radius: 5px;")  # Smaller padding
         self.header_layout.addWidget(self.pot_label)
 
         # Dealer label
         self.dealer_label = QLabel("Dealer: AI Player 1")
-        self.dealer_label.setFont(QFont('Arial', 14))
+        self.dealer_label.setFont(QFont('Arial', 10))  # Reduce font size to 10px
+        self.dealer_label.setFixedHeight(30)  # Set fixed height
         self.dealer_label.setAlignment(Qt.AlignCenter)
-        self.dealer_label.setStyleSheet("background-color: blue; color: white; padding: 10px; border-radius: 10px;")
+        self.dealer_label.setStyleSheet("background-color: blue; color: white; padding: 2px; border-radius: 5px;")  # Smaller padding
         self.header_layout.addWidget(self.dealer_label)
 
         # Add player win percentages
         self.win_percentage_labels = []
         for i in range(4):
             win_percentage_label = QLabel(f"AI Player {i + 1} Win %: 0%")
-            win_percentage_label.setFont(QFont('Arial', 14))
+            win_percentage_label.setFont(QFont('Arial', 10))  # Reduce font size to 10px
+            win_percentage_label.setFixedHeight(30)  # Set fixed height
             win_percentage_label.setAlignment(Qt.AlignCenter)
-            win_percentage_label.setStyleSheet("background-color: darkblue; color: white; padding: 5px; border-radius: 5px;")
+            win_percentage_label.setStyleSheet("background-color: darkblue; color: white; padding: 2px; border-radius: 5px;")  # Smaller padding
             self.header_layout.addWidget(win_percentage_label)
             self.win_percentage_labels.append(win_percentage_label)
 
@@ -65,9 +68,9 @@ class PokerGUI(QMainWindow):
             player_widget = QVBoxLayout()
 
             player_label = QLabel(f"AI Player {i + 1}")
-            player_label.setFont(QFont('Arial', 16))
+            player_label.setFont(QFont('Arial', 14))  # Slightly smaller
             player_label.setAlignment(Qt.AlignCenter)
-            player_label.setStyleSheet("background-color: darkred; border-radius: 10px; padding: 10px;")
+            player_label.setStyleSheet("background-color: darkred; border-radius: 10px; padding: 8px;")  # Smaller padding
             player_widget.addWidget(player_label)
             
             # Layout for card images
@@ -76,7 +79,7 @@ class PokerGUI(QMainWindow):
             player_widget.addLayout(card_layout)
 
             player_action = QLabel(f"Action: None")
-            player_action.setFont(QFont('Arial', 14))
+            player_action.setFont(QFont('Arial', 12))  # Reduced font size for actions
             player_action.setAlignment(Qt.AlignCenter)
             player_widget.addWidget(player_action)
 
@@ -91,9 +94,9 @@ class PokerGUI(QMainWindow):
         # Community cards in the middle
         self.community_cards_layout = QHBoxLayout()  # Layout to hold community card images
         self.community_cards_label = QLabel("Community Cards: ")
-        self.community_cards_label.setFont(QFont('Arial', 18))
+        self.community_cards_label.setFont(QFont('Arial', 16))  # Slightly reduced font size for cards
         self.community_cards_label.setAlignment(Qt.AlignCenter)
-        self.community_cards_label.setStyleSheet("background-color: black; color: white; padding: 10px; border-radius: 10px;")
+        self.community_cards_label.setStyleSheet("background-color: black; color: white; padding: 8px; border-radius: 5px;")
         self.table_layout.addWidget(self.community_cards_label)
         self.table_layout.addLayout(self.community_cards_layout)
 
@@ -109,7 +112,7 @@ class PokerGUI(QMainWindow):
         # Button to start the game
         self.start_button = QPushButton("Start Game")
         self.start_button.setFont(QFont('Arial', 16))
-        self.start_button.setStyleSheet("background-color: gold; color: black; padding: 10px;")
+        self.start_button.setStyleSheet("background-color: gold; color: black; padding: 8px;")  # Reduced padding
         self.start_button.clicked.connect(self.start_game)
         self.main_layout.addWidget(self.start_button)
 
