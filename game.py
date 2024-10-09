@@ -108,6 +108,9 @@ class PokerGame:
 
         if len(active_players) == 0:
             self.log.append("No active players. The round ends with no winner.")
+            # Increment total rounds for all players, even if no winner
+            for player in self.players:
+                player.total_rounds += 1
             return None, "No winner"
 
         best_hand_value = None
@@ -129,9 +132,12 @@ class PokerGame:
                 winning_hand = hand_description
 
         if best_player:
+            best_player.wins += 1  # Increment win count
             self.log.append(f"\nWinner: {best_player.name} with hand {best_player.hand} and community cards {self.community_cards}")
-        else:
-            self.log.append("No winner in this round.")
+        
+        # Increment total rounds for all players
+        for player in self.players:
+            player.total_rounds += 1
 
         return best_player, winning_hand
 
@@ -181,3 +187,13 @@ class PokerGame:
             list: The log of game events.
         """
         return self.log
+
+    def get_player_win_percentages(self):
+        """
+        Returns the win percentage for each player.
+
+        Returns:
+            dict: A dictionary mapping player names to their win percentages.
+        """
+        win_percentages = {player.name: player.get_win_percentage() for player in self.players}
+        return win_percentages

@@ -16,6 +16,8 @@ class AIPlayer:
         self.hand = []
         self.current_bet = 0
         self.is_active = True  # Whether the player is still in the round
+        self.wins = 0  # Track the number of rounds won
+        self.total_rounds = 0  # Track the total number of rounds played
 
     def deal_hand(self, hand):
         """
@@ -37,8 +39,8 @@ class AIPlayer:
         Returns:
             str: The AI's decision (fold, check, bet, raise).
         """
-        if not self.is_active:
-            return "fold"  # Inactive players can't make decisions
+        if not self.is_active or self.chips <= 0:
+            return "fold"  # Inactive or bankrupt players can't make decisions
 
         # Get decision from the AI model via the Ollama API
         decision = get_ai_decision(self.hand, community_cards)
@@ -110,4 +112,25 @@ class AIPlayer:
         """
         self.hand = []
         self.current_bet = 0
-        self.is_active = True
+        self.is_active = self.chips > 0  # Player remains active if they have chips
+        self.total_rounds += 1  # Increment total rounds played
+
+    def get_win_percentage(self):
+        """
+        Returns the player's win percentage based on rounds played and rounds won.
+        
+        Returns:
+            float: The player's win percentage (0-100).
+        """
+        if self.total_rounds == 0:
+            return 0.0
+        return (self.wins / self.total_rounds) * 100
+
+    def is_bankrupt(self):
+        """
+        Check if the player is out of chips.
+        
+        Returns:
+            bool: True if the player is bankrupt, False otherwise.
+        """
+        return self.chips <= 0

@@ -23,21 +23,38 @@ class PokerGUI(QMainWindow):
         self.central_widget = QWidget()
         self.main_layout = QVBoxLayout()
 
-        # Create the poker table (players and community cards)
-        self.table_layout = QVBoxLayout()
+        # Header layout for pot, dealer, and win percentages
+        self.header_layout = QHBoxLayout()
 
-        # Pot and dealer indicators
+        # Pot label
         self.pot_label = QLabel(f"Pot: {self.game.pot}")
-        self.pot_label.setFont(QFont('Arial', 18))
+        self.pot_label.setFont(QFont('Arial', 14))
         self.pot_label.setAlignment(Qt.AlignCenter)
         self.pot_label.setStyleSheet("background-color: black; color: white; padding: 10px; border-radius: 10px;")
-        self.table_layout.addWidget(self.pot_label)
+        self.header_layout.addWidget(self.pot_label)
 
+        # Dealer label
         self.dealer_label = QLabel("Dealer: AI Player 1")
-        self.dealer_label.setFont(QFont('Arial', 18))
+        self.dealer_label.setFont(QFont('Arial', 14))
         self.dealer_label.setAlignment(Qt.AlignCenter)
         self.dealer_label.setStyleSheet("background-color: blue; color: white; padding: 10px; border-radius: 10px;")
-        self.table_layout.addWidget(self.dealer_label)
+        self.header_layout.addWidget(self.dealer_label)
+
+        # Add player win percentages
+        self.win_percentage_labels = []
+        for i in range(4):
+            win_percentage_label = QLabel(f"AI Player {i + 1} Win %: 0%")
+            win_percentage_label.setFont(QFont('Arial', 14))
+            win_percentage_label.setAlignment(Qt.AlignCenter)
+            win_percentage_label.setStyleSheet("background-color: darkblue; color: white; padding: 5px; border-radius: 5px;")
+            self.header_layout.addWidget(win_percentage_label)
+            self.win_percentage_labels.append(win_percentage_label)
+
+        # Add the header layout to the main layout
+        self.main_layout.addLayout(self.header_layout)
+
+        # Create the poker table (players and community cards)
+        self.table_layout = QVBoxLayout()
 
         # Add player labels and card areas
         self.players_layout = QHBoxLayout()
@@ -128,6 +145,7 @@ class PokerGUI(QMainWindow):
         else:
             winner_text = "No winner this round."
         self.game_log.append(f"\n{winner_text}")
+        self.update_win_percentages()
 
     def reset_game_for_next_round(self):
         """Resets the game for the next round and starts a new one."""
@@ -223,6 +241,14 @@ class PokerGUI(QMainWindow):
         
         # Automatically scroll to the bottom of the log
         self.game_log.moveCursor(self.game_log.textCursor().End)
+
+    def update_win_percentages(self):
+        """
+        Updates the win percentage labels for each player.
+        """
+        for i, player in enumerate(self.game.players):
+            win_percentage = player.get_win_percentage()
+            self.win_percentage_labels[i].setText(f"AI Player {i + 1} Win %: {win_percentage:.2f}%")
 
 def run_gui(game):
     app = QApplication(sys.argv)
