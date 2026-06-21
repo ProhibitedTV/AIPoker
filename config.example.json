@@ -1,0 +1,22 @@
+{
+  "stage_delay_ms": 5000,
+  "between_hands_delay_ms": 5000,
+  "animation_duration_ms": 650,
+  "continuous_play": true,
+  "start_paused": false,
+  "fullscreen": true,
+  "overlay_enabled": true,
+  "overlay_host": "127.0.0.1",
+  "overlay_port": 8765,
+  "overlay_background": "#071c13",
+  "overlay_accent": "#e6b94a",
+  "overlay_font": "Arial, sans-serif",
+  "overlay_layout": "horizontal",
+  "tts_enabled": false,
+  "tts_volume": 0.9,
+  "tts_rate": 175,
+  "tts_voice": "",
+  "stats_path": "data/leaderboard.json",
+  "small_blind": 10,
+  "big_blind": 20
+}
