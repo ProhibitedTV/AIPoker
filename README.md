@@ -59,11 +59,14 @@ The `/state` response includes the same data under `leaderboard`, so custom over
 
 ## Development
 
-The core tests do not require Ollama or a display:
+The test suite does not require Ollama or a display:
 
 ```bash
-python -m unittest discover -s tests -v
+pip install -r requirements-dev.txt
+pytest -q
 ```
+
+GitHub Actions runs the suite on Python 3.10 and 3.12 for every push and pull request targeting `main`.
 
 Main modules:
 
