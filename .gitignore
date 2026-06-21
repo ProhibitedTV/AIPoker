@@ -164,3 +164,4 @@ cython_debug/
 # AI Poker local runtime state
 config.json
 data/leaderboard.json
+data/audio_cache/

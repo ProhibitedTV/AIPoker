@@ -70,6 +70,9 @@ class StreamingFeatureTests(unittest.TestCase):
             self.assertEqual(state["pot"], 0)
             self.assertEqual(len(state["players"]), 2)
             self.assertIn("AI Poker Overlay", html)
+            self.assertIn('aria-live="polite"', html)
+            self.assertIn('class="meter"', html)
+            self.assertIn("RECONNECTING", html)
         finally:
             server.close()
 
