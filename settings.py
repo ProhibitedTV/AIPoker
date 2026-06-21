@@ -24,6 +24,9 @@ class AppSettings:
     tts_volume: float = 0.9
     tts_rate: int = 175
     tts_voice: str = ""
+    audio_enabled: bool = True
+    audio_volume: float = 0.35
+    audio_cache_path: str = "data/audio_cache"
     stats_path: str = "data/leaderboard.json"
     small_blind: int = 10
     big_blind: int = 20

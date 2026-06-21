@@ -15,10 +15,12 @@ from PyQt5.QtCore import (
     pyqtProperty,
     pyqtSignal,
 )
-from PyQt5.QtGui import QColor, QFont, QKeySequence, QPainter, QPen, QPixmap
+from PyQt5.QtGui import QColor, QKeySequence, QPainter, QPen, QPixmap
 from PyQt5.QtWidgets import (
     QApplication,
     QCheckBox,
+    QComboBox,
+    QFrame,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -138,10 +140,18 @@ class ChipHistoryChart(QWidget):
 
 
 class PokerGUI(QMainWindow):
-    def __init__(self, game, settings):
+    PACE_PRESETS = (
+        ("Cinematic", 8000, 10000),
+        ("Broadcast", 5000, 6000),
+        ("Quick", 2500, 3500),
+        ("Turbo", 1000, 1800),
+    )
+
+    def __init__(self, game, settings, audio_service=None):
         super().__init__()
         self.game = game
         self.settings = settings
+        self.audio_service = audio_service
         self.card_image_path = os.path.join(os.path.dirname(__file__), "images", "cards")
         self.current_stage = 0
         self.running = False
@@ -153,6 +163,8 @@ class PokerGUI(QMainWindow):
         self._shown_community = None
         self._stage_in_progress = False
         self._stage_worker = None
+        self._last_log_snapshot = ()
+        self._leaderboard_signature = None
         self.thread_pool = QThreadPool.globalInstance()
         self.init_ui()
         self.timer = QTimer(self)
@@ -163,98 +175,242 @@ class PokerGUI(QMainWindow):
         self.refresh_timer.timeout.connect(self.update_visuals)
 
     def init_ui(self):
-        self.setWindowTitle("AI Poker Game")
-        if self.settings.fullscreen:
-            self.showFullScreen()
-        self.setStyleSheet("background-color: #08712f; font-family: Arial; font-size: 16px; color: white;")
+        self.setWindowTitle("AI Poker // Live Table")
+        self.setMinimumSize(1180, 760)
+        self.setStyleSheet(
+            """
+            QMainWindow, QWidget#root { background: #061812; color: #f4f1e8; font-family: "Segoe UI", Arial; }
+            QFrame#topBar, QFrame#boardPanel, QFrame#dataPanel, QFrame#controlBar {
+                background: #10271f; border: 1px solid #254b3d; border-radius: 12px;
+            }
+            QFrame#playerPanel { background: #0c211a; border: 1px solid #285140; border-radius: 12px; }
+            QLabel#brand { color: #f0c75e; font-size: 24px; font-weight: 800; letter-spacing: 2px; }
+            QLabel#eyebrow { color: #88aa9e; font-size: 11px; font-weight: 700; letter-spacing: 1px; }
+            QLabel#metricValue { color: #ffffff; font-size: 18px; font-weight: 700; }
+            QLabel#metricCaption { color: #88aa9e; font-size: 10px; font-weight: 700; }
+            QLabel#playerName { color: #ffffff; font-size: 16px; font-weight: 700; }
+            QLabel#playerStats { color: #9ab5ab; font-size: 11px; }
+            QLabel#actionBadge { background: #17382d; color: #d9e7e1; border-radius: 7px; padding: 6px; font-weight: 700; }
+            QLabel#commentaryBanner { background: #081c15; color: #f5d77e; border: 1px solid #315747;
+                border-radius: 9px; padding: 9px; font-size: 14px; font-weight: 600; }
+            QLabel#sectionTitle { color: #91b2a5; font-size: 11px; font-weight: 800; letter-spacing: 1px; }
+            QPushButton { background: #1c4436; color: #ffffff; border: 1px solid #376a57; border-radius: 8px;
+                padding: 8px 14px; font-weight: 700; }
+            QPushButton:hover { background: #285b49; }
+            QPushButton:disabled { color: #6f8b80; background: #132b23; }
+            QPushButton#primaryButton { background: #d8ad43; color: #132018; border-color: #f0ce75; }
+            QPushButton#dangerButton { background: #3a2424; color: #e8b5b5; border-color: #65403f; }
+            QComboBox { background: #0a1d17; color: #ffffff; border: 1px solid #376a57; border-radius: 7px; padding: 6px 10px; }
+            QCheckBox { color: #c7d8d1; spacing: 7px; }
+            QTextEdit, QTableWidget { background: #081b15; color: #dbe7e2; border: 0; gridline-color: #254b3d; }
+            QHeaderView::section { background: #17372c; color: #b9cec5; border: 0; padding: 6px; font-weight: 700; }
+            """
+        )
         central = QWidget()
+        central.setObjectName("root")
         main = QVBoxLayout(central)
+        main.setContentsMargins(16, 16, 16, 14)
+        main.setSpacing(12)
 
-        header = QHBoxLayout()
-        self.pot_label = self._header_label("Pot: 0", "black")
-        self.dealer_label = self._header_label("Dealer: -", "#194ca0")
-        header.addWidget(self.pot_label)
-        header.addWidget(self.dealer_label)
-        self.win_percentage_labels = []
-        for player in self.game.players:
-            label = self._header_label(f"{player.name} Win %: 0%", "#142b75")
-            header.addWidget(label)
-            self.win_percentage_labels.append(label)
-        main.addLayout(header)
+        top_bar = QFrame()
+        top_bar.setObjectName("topBar")
+        header = QHBoxLayout(top_bar)
+        header.setContentsMargins(16, 11, 16, 11)
+        brand_column = QVBoxLayout()
+        brand = QLabel("AI POKER")
+        brand.setObjectName("brand")
+        subtitle = QLabel("LOCAL MODELS  /  LIVE TABLE")
+        subtitle.setObjectName("eyebrow")
+        brand_column.addWidget(brand)
+        brand_column.addWidget(subtitle)
+        header.addLayout(brand_column, 2)
+        self.run_status_label = self._status_badge("STANDBY")
+        self.hand_status_label = self._metric_label("HAND", "0 · Waiting")
+        self.pot_label = self._metric_label("POT", "0")
+        self.blinds_label = self._metric_label("BLINDS", "0 / 0")
+        self.dealer_label = self._metric_label("DEALER", "-")
+        header.addWidget(self.run_status_label)
+        for widget in (self.hand_status_label, self.pot_label, self.blinds_label, self.dealer_label):
+            header.addWidget(widget, 1)
+        main.addWidget(top_bar)
 
         self.players_layout = QHBoxLayout()
+        self.players_layout.setSpacing(10)
+        self.player_frames = []
         self.player_labels = []
+        self.player_stats_labels = []
+        self.player_dealer_badges = []
         self.player_cards_layouts = []
         self.player_action_labels = []
         for player in self.game.players:
-            column = QVBoxLayout()
+            frame = QFrame()
+            frame.setObjectName("playerPanel")
+            column = QVBoxLayout(frame)
+            column.setContentsMargins(10, 10, 10, 10)
+            column.setSpacing(6)
+            name_row = QHBoxLayout()
             name = QLabel(player.name)
-            name.setFont(QFont("Arial", 14))
-            name.setAlignment(Qt.AlignCenter)
-            column.addWidget(name)
+            name.setObjectName("playerName")
+            dealer_badge = QLabel("D")
+            dealer_badge.setAlignment(Qt.AlignCenter)
+            dealer_badge.setFixedSize(22, 22)
+            dealer_badge.setStyleSheet("background:#d8ad43;color:#17231c;border-radius:11px;font-weight:800;")
+            dealer_badge.hide()
+            name_row.addWidget(name)
+            name_row.addStretch()
+            name_row.addWidget(dealer_badge)
+            column.addLayout(name_row)
+            stats = QLabel("1,000 chips · 0W 0T")
+            stats.setObjectName("playerStats")
+            column.addWidget(stats)
             cards = QHBoxLayout()
             cards.setAlignment(Qt.AlignCenter)
             column.addLayout(cards)
             action = QLabel("Waiting")
+            action.setObjectName("actionBadge")
             action.setAlignment(Qt.AlignCenter)
             column.addWidget(action)
+            self.player_frames.append(frame)
             self.player_labels.append(name)
+            self.player_stats_labels.append(stats)
+            self.player_dealer_badges.append(dealer_badge)
             self.player_cards_layouts.append(cards)
             self.player_action_labels.append(action)
-            self.players_layout.addLayout(column)
+            self.players_layout.addWidget(frame, 1)
         main.addLayout(self.players_layout)
 
-        self.community_cards_label = QLabel("Community Cards")
-        self.community_cards_label.setFont(QFont("Arial", 16))
-        self.community_cards_label.setAlignment(Qt.AlignCenter)
-        self.community_cards_label.setStyleSheet("background-color: #000a; padding: 8px; border-radius: 5px;")
-        main.addWidget(self.community_cards_label)
+        board = QFrame()
+        board.setObjectName("boardPanel")
+        board_layout = QVBoxLayout(board)
+        board_layout.setContentsMargins(14, 10, 14, 12)
+        board_header = QHBoxLayout()
+        self.community_cards_label = QLabel("COMMUNITY BOARD")
+        self.community_cards_label.setObjectName("sectionTitle")
+        self.stage_label = QLabel("WAITING")
+        self.stage_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.stage_label.setStyleSheet("color:#f0c75e;font-size:13px;font-weight:800;letter-spacing:1px;")
+        board_header.addWidget(self.community_cards_label)
+        board_header.addStretch()
+        board_header.addWidget(self.stage_label)
+        board_layout.addLayout(board_header)
         self.community_cards_layout = QHBoxLayout()
         self.community_cards_layout.setAlignment(Qt.AlignCenter)
-        main.addLayout(self.community_cards_layout)
+        board_layout.addLayout(self.community_cards_layout)
+        self.commentary_banner = QLabel("Table ready. Start the broadcast when Ollama is online.")
+        self.commentary_banner.setObjectName("commentaryBanner")
+        self.commentary_banner.setAlignment(Qt.AlignCenter)
+        self.commentary_banner.setWordWrap(True)
+        board_layout.addWidget(self.commentary_banner)
+        main.addWidget(board, 2)
 
         lower = QHBoxLayout()
+        lower.setSpacing(10)
+        feed_panel = self._data_panel("ACTION FEED")
+        feed_layout = feed_panel.layout()
         self.game_log = QTextEdit()
         self.game_log.setReadOnly(True)
-        self.game_log.setFixedHeight(165)
-        lower.addWidget(self.game_log, 2)
+        self.game_log.setMinimumHeight(170)
+        feed_layout.addWidget(self.game_log)
+        lower.addWidget(feed_panel, 3)
+        season_panel = self._data_panel("SEASON LEADERBOARD")
+        season_layout = season_panel.layout()
         self.leaderboard = QTableWidget(self.game.num_players, 6)
         self.leaderboard.setHorizontalHeaderLabels(["Player", "Hands", "Wins", "Ties", "Win %", "Net"])
         self.leaderboard.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.leaderboard.verticalHeader().hide()
-        self.leaderboard.setFixedHeight(165)
-        lower.addWidget(self.leaderboard, 2)
+        self.leaderboard.setSelectionMode(QTableWidget.NoSelection)
+        self.leaderboard.setFocusPolicy(Qt.NoFocus)
+        season_layout.addWidget(self.leaderboard)
+        lower.addWidget(season_panel, 3)
+        chart_panel = self._data_panel("CHIP MOMENTUM")
+        chart_layout = chart_panel.layout()
         self.chip_history_chart = ChipHistoryChart(self.game.metrics_store)
-        lower.addWidget(self.chip_history_chart, 2)
+        chart_layout.addWidget(self.chip_history_chart)
+        lower.addWidget(chart_panel, 2)
         main.addLayout(lower)
 
-        controls = QHBoxLayout()
+        control_bar = QFrame()
+        control_bar.setObjectName("controlBar")
+        controls = QHBoxLayout(control_bar)
+        controls.setContentsMargins(12, 9, 12, 9)
         self.start_button = QPushButton("Start")
+        self.start_button.setObjectName("primaryButton")
         self.start_button.clicked.connect(self.start_game)
         self.pause_button = QPushButton("Resume" if self.paused else "Pause")
         self.pause_button.clicked.connect(self.toggle_pause)
         self.pause_button.setEnabled(False)
+        pace_label = QLabel("PACE")
+        pace_label.setObjectName("eyebrow")
+        self.pace_combo = QComboBox()
+        for name, stage_delay, hand_delay in self.PACE_PRESETS:
+            self.pace_combo.addItem(name, (stage_delay, hand_delay))
+        closest = min(
+            range(len(self.PACE_PRESETS)),
+            key=lambda index: abs(self.PACE_PRESETS[index][1] - self.settings.stage_delay_ms),
+        )
+        self.pace_combo.setCurrentIndex(closest)
+        self.pace_combo.currentIndexChanged.connect(self.apply_pace_preset)
+        self.pace_combo.setToolTip("Change the delay between streets and hands without restarting")
         self.continuous_checkbox = QCheckBox("Continuous play")
         self.continuous_checkbox.setChecked(self.settings.continuous_play)
+        self.sound_checkbox = QCheckBox("Sound cues")
+        self.sound_checkbox.setChecked(bool(self.audio_service and self.audio_service.enabled))
+        self.sound_checkbox.setEnabled(bool(self.audio_service and self.audio_service.available))
+        self.sound_checkbox.toggled.connect(self.toggle_sound_cues)
+        if not self.sound_checkbox.isEnabled():
+            self.sound_checkbox.setToolTip("No supported local audio player was detected")
+        self.fullscreen_button = QPushButton("Fullscreen")
+        self.fullscreen_button.clicked.connect(self.toggle_fullscreen)
         self.reset_stats_button = QPushButton("Reset season stats")
+        self.reset_stats_button.setObjectName("dangerButton")
         self.reset_stats_button.clicked.connect(self.reset_statistics)
-        for widget in (self.start_button, self.pause_button, self.continuous_checkbox, self.reset_stats_button):
-            controls.addWidget(widget)
-        main.addLayout(controls)
+        shortcuts = QLabel("SPACE pause  ·  R resume  ·  F11 fullscreen")
+        shortcuts.setStyleSheet("color:#759488;font-size:10px;")
+        controls.addWidget(self.start_button)
+        controls.addWidget(self.pause_button)
+        controls.addSpacing(10)
+        controls.addWidget(pace_label)
+        controls.addWidget(self.pace_combo)
+        controls.addWidget(self.continuous_checkbox)
+        controls.addWidget(self.sound_checkbox)
+        controls.addStretch()
+        controls.addWidget(shortcuts)
+        controls.addWidget(self.fullscreen_button)
+        controls.addWidget(self.reset_stats_button)
+        main.addWidget(control_bar)
         self.setCentralWidget(central)
 
         QShortcut(QKeySequence("Space"), self, activated=self.toggle_pause)
         QShortcut(QKeySequence("R"), self, activated=self.resume_game)
+        QShortcut(QKeySequence("F11"), self, activated=self.toggle_fullscreen)
         self.update_visuals()
 
     @staticmethod
-    def _header_label(text, color):
+    def _status_badge(text):
         label = QLabel(text)
-        label.setFont(QFont("Arial", 10))
-        label.setFixedHeight(30)
         label.setAlignment(Qt.AlignCenter)
-        label.setStyleSheet(f"background-color: {color}; padding: 2px; border-radius: 5px;")
+        label.setMinimumWidth(92)
+        label.setStyleSheet("background:#273f35;color:#aac0b7;border-radius:8px;padding:8px;font-weight:800;")
         return label
+
+    @staticmethod
+    def _metric_label(caption, value):
+        label = QLabel(f'<span style="color:#88aa9e;font-size:10px;font-weight:700">{caption}</span><br>'
+                       f'<span style="color:#fff;font-size:17px;font-weight:700">{value}</span>')
+        label.setAlignment(Qt.AlignCenter)
+        label.setMinimumWidth(105)
+        return label
+
+    @staticmethod
+    def _data_panel(title):
+        panel = QFrame()
+        panel.setObjectName("dataPanel")
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(8, 8, 8, 8)
+        heading = QLabel(title)
+        heading.setObjectName("sectionTitle")
+        layout.addWidget(heading)
+        return panel
 
     def start_game(self):
         if self.running:
@@ -265,8 +421,29 @@ class PokerGUI(QMainWindow):
         self.start_button.setEnabled(False)
         self.pause_button.setEnabled(True)
         self.pause_button.setText("Resume" if self.paused else "Pause")
+        self.update_visuals()
         if not self.paused:
             self.timer.start(0)
+
+    def apply_pace_preset(self, index):
+        stage_delay, hand_delay = self.pace_combo.itemData(index)
+        self.settings.stage_delay_ms = stage_delay
+        self.settings.between_hands_delay_ms = hand_delay
+        self.pace_combo.setToolTip(
+            f"{stage_delay / 1000:g}s between streets · {hand_delay / 1000:g}s between hands"
+        )
+
+    def toggle_fullscreen(self):
+        if self.isFullScreen():
+            self.showNormal()
+            self.fullscreen_button.setText("Fullscreen")
+        else:
+            self.showFullScreen()
+            self.fullscreen_button.setText("Exit fullscreen")
+
+    def toggle_sound_cues(self, enabled):
+        if self.audio_service:
+            self.audio_service.set_enabled(enabled)
 
     def toggle_pause(self):
         if not self.running:
@@ -362,20 +539,70 @@ class PokerGUI(QMainWindow):
 
     def update_visuals(self):
         self.update_community_cards(self.game.community_cards)
-        self.pot_label.setText(f"Pot: {self.game.pot}")
         dealer = "-" if self.game.dealer_position < 0 else self.game.players[self.game.dealer_position].name
-        self.dealer_label.setText(f"Dealer: {dealer}")
+        self._set_metric(self.hand_status_label, "HAND", f"{self.game.hand_number} · {self.game.stage}")
+        self._set_metric(self.pot_label, "POT", f"{self.game.pot:,}")
+        self._set_metric(self.blinds_label, "BLINDS", f"{self.game.small_blind} / {self.game.big_blind}")
+        self._set_metric(self.dealer_label, "DEALER", dealer.replace("AI Player ", "P"))
+        self.stage_label.setText(self.game.stage.upper())
+
+        if self.paused:
+            status_text, status_style = "Ⅱ  PAUSED", "background:#5b4720;color:#f5d77e;"
+        elif self._stage_in_progress:
+            status_text, status_style = "●  THINKING", "background:#153f5a;color:#8fd2ff;"
+        elif self.running:
+            status_text, status_style = "●  LIVE", "background:#174732;color:#77e0a1;"
+        else:
+            status_text, status_style = "○  STANDBY", "background:#273f35;color:#aac0b7;"
+        self.run_status_label.setText(status_text)
+        self.run_status_label.setStyleSheet(
+            status_style + "border-radius:8px;padding:8px;font-weight:800;"
+        )
+
+        latest_commentary = list(self.game.commentary)[-1:] or [
+            "Table ready. Start the broadcast when Ollama is online."
+        ]
+        self.commentary_banner.setText(latest_commentary[0])
+
         for index, player in enumerate(self.game.players):
-            color = "#d8b51f; color: black" if index == self.game.next_to_act else "#7b1818; color: white"
             if not player.is_active:
-                color = "#3d3d3d; color: #aaa"
-            self.player_labels[index].setStyleSheet(f"background-color: {color}; border-radius: 10px; padding: 6px;")
-            self.player_labels[index].setText(f"{player.name} · {player.chips} chips")
+                frame_style = "background:#101a17;border:1px solid #293a34;border-radius:12px;"
+                name_style = "color:#71827b;font-size:16px;font-weight:700;"
+            elif index == self.game.next_to_act:
+                frame_style = "background:#18392d;border:2px solid #e0b84f;border-radius:12px;"
+                name_style = "color:#f7d875;font-size:16px;font-weight:800;"
+            else:
+                frame_style = "background:#0c211a;border:1px solid #285140;border-radius:12px;"
+                name_style = "color:#ffffff;font-size:16px;font-weight:700;"
+            self.player_frames[index].setStyleSheet(f"QFrame#playerPanel {{{frame_style}}}")
+            self.player_labels[index].setStyleSheet(name_style)
+            self.player_labels[index].setText(player.name)
+            self.player_stats_labels[index].setText(
+                f"{player.chips:,} chips  ·  {player.wins}W {player.ties}T  ·  {player.get_win_percentage():.1f}%"
+            )
+            self.player_dealer_badges[index].setVisible(index == self.game.dealer_position)
             self.update_player_cards(index, player.hand if player.is_active else [])
             self.player_action_labels[index].setText(player.last_action)
+            if not player.is_active:
+                action_style = "background:#252e2a;color:#77847f;"
+            elif index == self.game.next_to_act:
+                action_style = "background:#d8ad43;color:#162119;"
+            elif player.last_action.startswith(("Bet", "Raised")):
+                action_style = "background:#63352c;color:#ffd0bf;"
+            else:
+                action_style = "background:#17382d;color:#d9e7e1;"
+            self.player_action_labels[index].setStyleSheet(
+                action_style + "border-radius:7px;padding:6px;font-weight:700;"
+            )
         self.update_game_log()
-        self.update_win_percentages()
         self.update_leaderboard()
+
+    @staticmethod
+    def _set_metric(label, caption, value):
+        label.setText(
+            f'<span style="color:#88aa9e;font-size:10px;font-weight:700">{caption}</span><br>'
+            f'<span style="color:#fff;font-size:17px;font-weight:700">{value}</span>'
+        )
 
     def update_community_cards(self, cards):
         signature = tuple(cards)
@@ -415,17 +642,34 @@ class PokerGUI(QMainWindow):
         return QPixmap(path).scaled(80, 120, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
     def update_game_log(self):
-        self.game_log.setPlainText("\n".join(self.game.get_log()))
+        snapshot = tuple(self.game.get_log())
+        if snapshot == self._last_log_snapshot:
+            return
+        self._last_log_snapshot = snapshot
+        self.game_log.setPlainText("\n".join(snapshot))
         self.game_log.moveCursor(self.game_log.textCursor().End)
 
     def update_win_percentages(self):
         for index, player in enumerate(self.game.players):
-            self.win_percentage_labels[index].setText(
-                f"{player.name} Win %: {player.get_win_percentage():.2f}%"
+            self.player_stats_labels[index].setText(
+                f"{player.chips:,} chips  ·  {player.wins}W {player.ties}T  ·  {player.get_win_percentage():.1f}%"
             )
 
     def update_leaderboard(self):
         data = self.game.metrics_store.snapshot() if self.game.metrics_store else {"players": {}}
+        signature = tuple(
+            (
+                player.name,
+                data["players"].get(player.name, {}).get("hands_played", player.total_rounds),
+                data["players"].get(player.name, {}).get("hands_won", player.wins),
+                data["players"].get(player.name, {}).get("hands_tied", player.ties),
+                data["players"].get(player.name, {}).get("net_chips", 0),
+            )
+            for player in self.game.players
+        )
+        if signature == self._leaderboard_signature:
+            return
+        self._leaderboard_signature = signature
         for row, player in enumerate(self.game.players):
             stats = data["players"].get(player.name, {})
             values = [
@@ -441,8 +685,12 @@ class PokerGUI(QMainWindow):
         self.chip_history_chart.update()
 
 
-def run_gui(game, settings):
+def run_gui(game, settings, audio_service=None):
     app = QApplication(sys.argv)
-    gui = PokerGUI(game, settings)
-    gui.show()
+    gui = PokerGUI(game, settings, audio_service=audio_service)
+    if settings.fullscreen:
+        gui.showFullScreen()
+        gui.fullscreen_button.setText("Exit fullscreen")
+    else:
+        gui.show()
     return app.exec_()

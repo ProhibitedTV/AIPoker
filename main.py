@@ -2,6 +2,7 @@
 
 import argparse
 
+from audio import AudioService
 from commentary import CommentaryService
 from game import PokerGame
 from gui import run_gui
@@ -19,6 +20,8 @@ def parse_args(argv=None):
     parser.add_argument("--overlay-port", type=int)
     parser.add_argument("--no-overlay", action="store_true")
     parser.add_argument("--tts", action="store_true")
+    parser.add_argument("--mute", action="store_true", help="Disable generated game sound cues")
+    parser.add_argument("--audio-volume", type=float, help="Sound cue volume from 0.0 to 1.0")
     parser.add_argument("--windowed", action="store_true")
     continuous = parser.add_mutually_exclusive_group()
     continuous.add_argument("--continuous-play", action="store_true")
@@ -40,6 +43,10 @@ def build_settings(args):
         settings.overlay_enabled = False
     if args.tts:
         settings.tts_enabled = True
+    if args.mute:
+        settings.audio_enabled = False
+    if args.audio_volume is not None:
+        settings.audio_volume = max(0.0, min(1.0, args.audio_volume))
     if args.windowed:
         settings.fullscreen = False
     if args.continuous_play:
@@ -65,6 +72,12 @@ def main(argv=None):
         voice=settings.tts_voice,
     )
     game.subscribe(commentary.handle_event)
+    audio = AudioService(
+        enabled=settings.audio_enabled,
+        volume=settings.audio_volume,
+        cache_dir=settings.audio_cache_path,
+    )
+    game.subscribe(audio.handle_event)
     overlay = None
     if settings.overlay_enabled:
         overlay = OverlayServer(
@@ -79,8 +92,9 @@ def main(argv=None):
         print(f"Streaming overlay: {overlay.url}")
 
     try:
-        return run_gui(game, settings)
+        return run_gui(game, settings, audio_service=audio)
     finally:
+        audio.close()
         commentary.close()
         if overlay:
             overlay.close()

@@ -16,6 +16,9 @@
   "tts_volume": 0.9,
   "tts_rate": 175,
   "tts_voice": "",
+  "audio_enabled": true,
+  "audio_volume": 0.35,
+  "audio_cache_path": "data/audio_cache",
   "stats_path": "data/leaderboard.json",
   "small_blind": 10,
   "big_blind": 20

@@ -15,11 +15,12 @@ The project is designed to become a genuinely watchable 24/7 AI poker stream, no
 
 - Four Ollama-driven AI players with validated fold/check/bet/raise responses
 - Non-blocking Qt deal and card-flip transitions
-- Configurable stage, animation, and between-hand timing
+- Configurable stage, animation, and between-hand timing with live pace presets
 - Continuous play plus pause/resume controls (`Space` toggles, `R` resumes)
 - Browser-source overlay showing pot, blinds, board, dealer, next player, actions, chips, and win rates
 - Live JSON state endpoint for custom widgets
 - Text commentary feed and optional background text-to-speech
+- Non-blocking generated sound cues for cards, chips, board reveals, wins, and recovery alerts
 - Persistent hands, wins, ties, win rates, chip results, streaks, and chip history
 - In-app leaderboard with an explicitly confirmed season reset
 
@@ -65,16 +66,20 @@ pip install pyttsx3
 python main.py --continuous-play --tts
 ```
 
-By default the OBS/browser overlay is available at `http://127.0.0.1:8765/overlay` and machine-readable state at `http://127.0.0.1:8765/state`. Add the overlay URL to OBS as a Browser Source. The server binds only to localhost unless configured otherwise.
+By default the OBS/browser overlay is available at `http://127.0.0.1:8765/overlay` and machine-readable state at `http://127.0.0.1:8765/state`. Add the overlay URL to OBS as a **1920×1080 Browser Source**. The default layout fills a full HD canvas; append `?compact=1` for a compact panel intended to sit over another video source. The server binds only to localhost unless configured otherwise.
+
+Sound cues are generated locally on first launch and stored under `data/audio_cache`. Windows uses its built-in WAV playback. macOS uses `afplay`; Linux uses `paplay` or `aplay` when available. The desktop **Sound cues** control can mute effects without interrupting play. Capture desktop/application audio in OBS to include cues and optional TTS in the stream mix.
 
 Before a long broadcast:
 
 - Confirm every Ollama model responds locally.
-- Add the browser overlay to OBS and verify its dimensions and theme.
+- Add the browser overlay to OBS at 1920×1080 and verify its safe area, theme, and compact/full mode.
 - Tune stage and between-hand delays for viewers rather than maximum throughput.
 - Confirm `data/leaderboard.json` is writable and backed up if the season matters.
 - Disable host sleep and run the process under an appropriate supervisor for the operating system.
 - Test pause/resume and audio levels before going live.
+
+The desktop control bar provides live **Cinematic**, **Broadcast**, **Quick**, and **Turbo** pacing presets. `Space` toggles pause, `R` resumes, and `F11` toggles fullscreen without restarting the table.
 
 Useful command-line controls:
 
@@ -82,10 +87,11 @@ Useful command-line controls:
 python main.py --stage-delay 3 --hand-delay 8 --animation-duration 0.8
 python main.py --single-hand --windowed --no-overlay
 python main.py --continuous-play --tts --overlay-port 9000
+python main.py --audio-volume 0.25  # or --mute
 python main.py --config my-stream.json
 ```
 
-Copy `config.example.json` to `config.json` to customize colors, fonts, pacing, blinds, overlay binding, TTS voice/rate/volume, and the leaderboard path. CLI values override the configuration file.
+Copy `config.example.json` to `config.json` to customize colors, fonts, pacing, blinds, overlay binding, sound volume, TTS voice/rate/volume, and the leaderboard path. CLI values override the configuration file.
 
 If Ollama temporarily fails to answer, a player safely falls back to folding after the request timeout. Set the `OLLAMA_TIMEOUT_SECONDS` environment variable to tune that timeout. The table automatically re-seats all players when fewer than two have chips, allowing continuous play without operator intervention.
 
@@ -119,7 +125,15 @@ Main modules:
 - `overlay_server.py` - OBS page and JSON endpoint
 - `metrics.py` - durable season metrics
 - `commentary.py` - queued optional TTS
+- `audio.py` - generated, queued event sound cues
 - `settings.py` - JSON configuration model
+
+For deterministic UI review without Ollama, the repository includes preview helpers:
+
+```bash
+python -m scripts.preview_overlay
+python -m scripts.preview_gui ui-preview.png
+```
 
 ## License
 
