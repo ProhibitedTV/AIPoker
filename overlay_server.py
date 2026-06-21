@@ -49,7 +49,7 @@ async function refresh() {
     document.getElementById('players').innerHTML = state.players.map(p => `
       <article class="player ${p.next_to_act ? 'next' : ''}">
         <div class="name">${p.name}${p.is_dealer ? ' · D' : ''}</div>
-        <div>${p.chips} chips · ${Number(p.win_percentage).toFixed(1)}%</div>
+        <div>${p.chips} chips · ${Number(p.win_percentage).toFixed(1)}% wins · ${p.ties} ties</div>
         <div class="action">${p.action || 'Waiting'}</div>
       </article>`).join('');
     const feed = state.commentary || [];

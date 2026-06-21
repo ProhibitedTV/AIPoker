@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 import tempfile
+from threading import Event, Thread
+import time
 import unittest
 from urllib.request import urlopen
 
@@ -78,6 +80,75 @@ class StreamingFeatureTests(unittest.TestCase):
             settings = AppSettings.load(path)
             self.assertEqual(settings.stage_delay_ms, 123)
             self.assertTrue(settings.continuous_play)
+
+    def test_tied_showdown_splits_odd_pot_and_records_ties(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = MetricsStore(Path(directory) / "leaderboard.json")
+            game = PokerGame(2, metrics_store=store, decision_provider=lambda *_: "check")
+            game.dealer_position = 0
+            game.hand_in_progress = True
+            game.players[0].hand = [(2, "hearts"), (3, "clubs")]
+            game.players[1].hand = [(4, "hearts"), (5, "clubs")]
+            game.community_cards = [
+                (10, "hearts"), (11, "clubs"), (12, "diamonds"),
+                (13, "spades"), (14, "hearts"),
+            ]
+            game.players[0].chips = 990
+            game.players[1].chips = 979
+            game._opening_chips = {player.name: 1000 for player in game.players}
+            game.pot = 31
+
+            game.determine_winner()
+
+            self.assertEqual([player.chips for player in game.players], [1005, 995])
+            self.assertEqual([player.ties for player in game.players], [1, 1])
+            snapshot = store.snapshot()
+            self.assertEqual(snapshot["players"]["AI Player 1"]["hands_tied"], 1)
+            self.assertEqual(snapshot["players"]["AI Player 2"]["hands_tied"], 1)
+
+    def test_state_endpoint_data_remains_available_while_model_thinks(self):
+        started = Event()
+        release = Event()
+
+        def slow_decision(*_args):
+            started.set()
+            release.wait(timeout=2)
+            return "check"
+
+        game = PokerGame(2, decision_provider=slow_decision)
+        worker = Thread(target=game.play_pre_flop)
+        worker.start()
+        self.assertTrue(started.wait(timeout=1))
+        before = time.monotonic()
+        state = game.state_snapshot()
+        elapsed = time.monotonic() - before
+        release.set()
+        worker.join(timeout=2)
+
+        self.assertLess(elapsed, 0.2)
+        self.assertEqual(state["stage"], "Pre-Flop")
+        self.assertIsNotNone(state["players"])
+
+    def test_interrupted_hand_is_refunded_for_continuous_play(self):
+        def failed_decision(*_args):
+            raise RuntimeError("model process stopped")
+
+        game = PokerGame(4, decision_provider=failed_decision)
+        with self.assertRaises(RuntimeError):
+            game.play_pre_flop()
+        game.recover_from_error("model process stopped")
+
+        self.assertEqual(sum(player.chips for player in game.players), 4000)
+        self.assertEqual(game.pot, 0)
+        self.assertFalse(game.hand_in_progress)
+        self.assertEqual(game.stage, "Recovering")
+
+    def test_game_log_is_bounded_for_long_running_streams(self):
+        game = PokerGame(2, decision_provider=lambda *_: "check")
+        for index in range(2100):
+            game._emit("diagnostic", f"event {index}")
+        self.assertEqual(len(game.get_log()), 2000)
+        self.assertEqual(game.get_log()[0], "event 100")
 
 
 if __name__ == "__main__":

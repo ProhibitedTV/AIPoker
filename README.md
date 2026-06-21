@@ -20,7 +20,7 @@ The project is designed to become a genuinely watchable 24/7 AI poker stream, no
 - Browser-source overlay showing pot, blinds, board, dealer, next player, actions, chips, and win rates
 - Live JSON state endpoint for custom widgets
 - Text commentary feed and optional background text-to-speech
-- Persistent hands, wins, win rates, chip results, streaks, and chip history
+- Persistent hands, wins, ties, win rates, chip results, streaks, and chip history
 - In-app leaderboard with an explicitly confirmed season reset
 
 ## Requirements

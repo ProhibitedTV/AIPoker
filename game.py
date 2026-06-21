@@ -39,7 +39,7 @@ class PokerGame:
         self.deck = Deck()
         self.community_cards = []
         self.pot = 0
-        self.log = []
+        self.log = deque(maxlen=2000)
         self.commentary = deque(maxlen=30)
         self.dealer_position = -1
         self.next_to_act = None
@@ -49,6 +49,7 @@ class PokerGame:
         self.big_blind = big_blind
         self.metrics_store = metrics_store
         self._opening_chips = {}
+        self.hand_in_progress = False
         self._listeners = []
         self._lock = RLock()
 
@@ -56,6 +57,7 @@ class PokerGame:
             for player in self.players:
                 saved = metrics_store.player(player.name)
                 player.wins = saved["hands_won"]
+                player.ties = saved.get("hands_tied", 0)
                 player.total_rounds = saved["hands_played"]
 
     def subscribe(self, listener):
@@ -75,27 +77,27 @@ class PokerGame:
                 continue
 
     def play_pre_flop(self):
-        with self._lock:
-            self._ensure_playable_table()
-            self.hand_number += 1
-            self.stage = "Pre-Flop"
-            self.deck.reset()
-            self.community_cards = []
-            self.pot = 0
-            self.dealer_position = (self.dealer_position + 1) % self.num_players
-            for player in self.players:
-                player.reset_for_next_round()
-            self._opening_chips = {player.name: player.chips for player in self.players}
-            self._emit("hand_started", f"\n--- Hand {self.hand_number} ---")
+        self._ensure_playable_table()
+        self.hand_number += 1
+        self.stage = "Pre-Flop"
+        self.deck.reset()
+        self.community_cards = []
+        self.pot = 0
+        self.dealer_position = (self.dealer_position + 1) % self.num_players
+        for player in self.players:
+            player.reset_for_next_round()
+        self._opening_chips = {player.name: player.chips for player in self.players}
+        self.hand_in_progress = True
+        self._emit("hand_started", f"\n--- Hand {self.hand_number} ---")
 
-            for player in self.players:
-                player.deal_hand(self.deck.deal_hand())
-                cards = ", ".join(self.format_card(card) for card in player.hand)
-                self._emit("deal", f"{player.name} is dealt {cards}", player=player.name)
+        for player in self.players:
+            player.deal_hand(self.deck.deal_hand())
+            cards = ", ".join(self.format_card(card) for card in player.hand)
+            self._emit("deal", f"{player.name} is dealt {cards}", player=player.name)
 
-            self._post_blinds()
-            self.betting_round("Pre-Flop", reset_bets=False)
-            self._emit("state", "")
+        self._post_blinds()
+        self.betting_round("Pre-Flop", reset_bets=False)
+        self._emit("state", "")
 
     def _ensure_playable_table(self):
         if sum(player.chips > 0 for player in self.players) > 1:
@@ -122,28 +124,25 @@ class PokerGame:
             self._emit("action", f"{player.name} posts {label.lower()} {paid}.", player=player.name)
 
     def play_flop(self):
-        with self._lock:
-            self.stage = "Flop"
-            self.community_cards = self.deck.deal_flop()
-            cards = ", ".join(self.format_card(card) for card in self.community_cards)
-            self._emit("community", f"Flop reveals {cards}.")
-            self.betting_round("Flop")
+        self.stage = "Flop"
+        self.community_cards = self.deck.deal_flop()
+        cards = ", ".join(self.format_card(card) for card in self.community_cards)
+        self._emit("community", f"Flop reveals {cards}.")
+        self.betting_round("Flop")
 
     def play_turn(self):
-        with self._lock:
-            self.stage = "Turn"
-            card = self.deck.deal_turn()
-            self.community_cards.append(card)
-            self._emit("community", f"Turn reveals {self.format_card(card)}.")
-            self.betting_round("Turn")
+        self.stage = "Turn"
+        card = self.deck.deal_turn()
+        self.community_cards.append(card)
+        self._emit("community", f"Turn reveals {self.format_card(card)}.")
+        self.betting_round("Turn")
 
     def play_river(self):
-        with self._lock:
-            self.stage = "River"
-            card = self.deck.deal_river()
-            self.community_cards.append(card)
-            self._emit("community", f"River reveals {self.format_card(card)}.")
-            self.betting_round("River")
+        self.stage = "River"
+        card = self.deck.deal_river()
+        self.community_cards.append(card)
+        self._emit("community", f"River reveals {self.format_card(card)}.")
+        self.betting_round("River")
 
     def betting_round(self, round_name, reset_bets=True):
         self._emit("round", f"\n--- {round_name} Betting Round ---")
@@ -187,8 +186,8 @@ class PokerGame:
                 self._emit("winner", "No active players. The hand has no winner.")
                 return None, "No winner"
 
-            best_player = None
             best_value = None
+            winners = []
             winning_hand = ""
             for player in active:
                 hand_value, best_ranks = evaluate_hand(player.hand, self.community_cards)
@@ -197,28 +196,61 @@ class PokerGame:
                 self._emit("evaluation", f"{player.name}: {description} ({best_ranks})")
                 if best_value is None or value > best_value:
                     best_value = value
-                    best_player = player
+                    winners = [player]
                     winning_hand = description
+                elif value == best_value:
+                    winners.append(player)
 
-            best_player.chips += self.pot
             awarded = self.pot
+            share, odd_chips = divmod(awarded, len(winners))
+            payout_order = sorted(
+                winners,
+                key=lambda player: (self.players.index(player) - self.dealer_position - 1) % self.num_players,
+            )
+            for index, player in enumerate(payout_order):
+                player.chips += share + (1 if index < odd_chips else 0)
             self.pot = 0
-            best_player.wins += 1
-            self._finish_hand(best_player.name)
+            winner_names = [player.name for player in winners]
+            if len(winners) == 1:
+                winners[0].wins += 1
+                message = f"{winners[0].name} wins {awarded} chips with a {winning_hand}!"
+            else:
+                for player in winners:
+                    player.ties += 1
+                message = f"{' and '.join(winner_names)} split {awarded} chips with a {winning_hand}!"
+            self._finish_hand(winner_names)
             self._emit(
                 "winner",
-                f"{best_player.name} wins {awarded} chips with a {winning_hand}!",
-                player=best_player.name,
+                message,
+                players=winner_names,
                 hand=winning_hand,
                 amount=awarded,
+                split=len(winners) > 1,
             )
-            return best_player, winning_hand
+            return winners[0], winning_hand
 
-    def _finish_hand(self, winner_name):
+    def _finish_hand(self, winner_names):
+        self.hand_in_progress = False
         for player in self.players:
             player.total_rounds += 1
         if self.metrics_store:
-            self.metrics_store.record_hand(self.players, winner_name, self._opening_chips)
+            self.metrics_store.record_hand(self.players, winner_names, self._opening_chips)
+
+    def recover_from_error(self, error):
+        """Refund an interrupted hand and return the table to a playable state."""
+        with self._lock:
+            if self.hand_in_progress:
+                for player in self.players:
+                    if player.name in self._opening_chips:
+                        player.chips = self._opening_chips[player.name]
+            for player in self.players:
+                player.reset_for_next_round()
+            self.community_cards = []
+            self.pot = 0
+            self.next_to_act = None
+            self.hand_in_progress = False
+            self.stage = "Recovering"
+            self._emit("error", f"Hand interrupted and refunded: {error}")
 
     def reset_metrics(self):
         if self.metrics_store:
@@ -253,6 +285,7 @@ class PokerGame:
                         "action": player.last_action,
                         "active": player.is_active,
                         "win_percentage": round(player.get_win_percentage(), 2),
+                        "ties": player.ties,
                         "is_dealer": index == self.dealer_position,
                         "next_to_act": index == self.next_to_act,
                     }

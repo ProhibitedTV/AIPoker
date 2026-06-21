@@ -33,7 +33,9 @@ class MetricsStore:
         return {
             "hands_played": 0,
             "hands_won": 0,
+            "hands_tied": 0,
             "win_rate": 0.0,
+            "tie_rate": 0.0,
             "chips_won": 0,
             "chips_lost": 0,
             "net_chips": 0,
@@ -44,24 +46,33 @@ class MetricsStore:
 
     def player(self, name):
         with self._lock:
-            return dict(self._data.get("players", {}).get(name, self._new_player()))
+            return {**self._new_player(), **self._data.get("players", {}).get(name, {})}
 
-    def record_hand(self, players, winner_name, opening_chips):
+    def record_hand(self, players, winner_names, opening_chips):
         with self._lock:
+            if isinstance(winner_names, str):
+                winner_names = [winner_names]
+            winners = set(winner_names or [])
+            split_pot = len(winners) > 1
             self._data["hands_played"] += 1
             hand_number = self._data["hands_played"]
             history = {"hand": hand_number, "players": {}}
 
             for player in players:
                 stats = self._data["players"].setdefault(player.name, self._new_player())
+                for key, value in self._new_player().items():
+                    stats.setdefault(key, value)
                 delta = player.chips - opening_chips.get(player.name, player.chips)
                 stats["hands_played"] += 1
-                if player.name == winner_name:
+                if player.name in winners and not split_pot:
                     stats["hands_won"] += 1
                     stats["current_streak"] = max(1, stats["current_streak"] + 1)
                     stats["longest_winning_streak"] = max(
                         stats["longest_winning_streak"], stats["current_streak"]
                     )
+                elif player.name in winners:
+                    stats["hands_tied"] += 1
+                    stats["current_streak"] = 0
                 else:
                     stats["current_streak"] = min(-1, stats["current_streak"] - 1)
                     stats["longest_losing_streak"] = max(
@@ -72,6 +83,9 @@ class MetricsStore:
                 stats["net_chips"] += delta
                 stats["win_rate"] = round(
                     100 * stats["hands_won"] / stats["hands_played"], 2
+                )
+                stats["tie_rate"] = round(
+                    100 * stats["hands_tied"] / stats["hands_played"], 2
                 )
                 history["players"][player.name] = player.chips
 

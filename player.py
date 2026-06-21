@@ -13,6 +13,7 @@ class AIPlayer:
         self.current_bet = 0
         self.is_active = True
         self.wins = 0
+        self.ties = 0
         self.total_rounds = 0
         self.last_action = "Waiting"
         self.last_wager = 0
