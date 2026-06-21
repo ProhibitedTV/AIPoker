@@ -1,17 +1,90 @@
+"""Command-line entry point for AI Poker."""
+
+import argparse
+
+from commentary import CommentaryService
 from game import PokerGame
-from gui import run_gui  # Import the GUI launcher function
+from gui import run_gui
+from metrics import MetricsStore
+from overlay_server import OverlayServer
+from settings import AppSettings
 
-def main():
-    """
-    Main function to initialize the poker game and launch the GUI.
-    """
-    num_players = 4  # Number of AI players in the game
 
-    # Initialize the poker game with the specified number of players
-    game = PokerGame(num_players=num_players)
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(description="Run the AI Poker spectator table")
+    parser.add_argument("--config", default="config.json", help="JSON settings file")
+    parser.add_argument("--stage-delay", type=float, help="Seconds between game stages")
+    parser.add_argument("--hand-delay", type=float, help="Seconds between hands")
+    parser.add_argument("--animation-duration", type=float, help="Card animation duration in seconds")
+    parser.add_argument("--overlay-port", type=int)
+    parser.add_argument("--no-overlay", action="store_true")
+    parser.add_argument("--tts", action="store_true")
+    parser.add_argument("--windowed", action="store_true")
+    continuous = parser.add_mutually_exclusive_group()
+    continuous.add_argument("--continuous-play", action="store_true")
+    continuous.add_argument("--single-hand", action="store_true")
+    return parser.parse_args(argv)
 
-    # Launch the GUI and pass the game object
-    run_gui(game)
+
+def build_settings(args):
+    settings = AppSettings.load(args.config)
+    if args.stage_delay is not None:
+        settings.stage_delay_ms = max(0, int(args.stage_delay * 1000))
+    if args.hand_delay is not None:
+        settings.between_hands_delay_ms = max(0, int(args.hand_delay * 1000))
+    if args.animation_duration is not None:
+        settings.animation_duration_ms = max(0, int(args.animation_duration * 1000))
+    if args.overlay_port is not None:
+        settings.overlay_port = args.overlay_port
+    if args.no_overlay:
+        settings.overlay_enabled = False
+    if args.tts:
+        settings.tts_enabled = True
+    if args.windowed:
+        settings.fullscreen = False
+    if args.continuous_play:
+        settings.continuous_play = True
+    if args.single_hand:
+        settings.continuous_play = False
+    return settings
+
+
+def main(argv=None):
+    settings = build_settings(parse_args(argv))
+    metrics = MetricsStore(settings.stats_path)
+    game = PokerGame(
+        num_players=4,
+        small_blind=settings.small_blind,
+        big_blind=settings.big_blind,
+        metrics_store=metrics,
+    )
+    commentary = CommentaryService(
+        enabled=settings.tts_enabled,
+        volume=settings.tts_volume,
+        rate=settings.tts_rate,
+        voice=settings.tts_voice,
+    )
+    game.subscribe(commentary.handle_event)
+    overlay = None
+    if settings.overlay_enabled:
+        overlay = OverlayServer(
+            game,
+            host=settings.overlay_host,
+            port=settings.overlay_port,
+            background=settings.overlay_background,
+            accent=settings.overlay_accent,
+            font=settings.overlay_font,
+            layout=settings.overlay_layout,
+        ).start()
+        print(f"Streaming overlay: {overlay.url}")
+
+    try:
+        return run_gui(game, settings)
+    finally:
+        commentary.close()
+        if overlay:
+            overlay.close()
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

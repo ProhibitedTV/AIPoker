@@ -1,136 +1,88 @@
+"""AI poker player state and wager handling."""
+
 import random
-from hand_evaluator import evaluate_hand
+
 from ollama_integration import get_ai_decision
 
+
 class AIPlayer:
-    def __init__(self, name, chips=1000):
-        """
-        Initializes an AI player with a given name and a starting number of chips.
-        
-        Args:
-            name (str): The name of the AI player.
-            chips (int): The starting amount of chips for the player (default is 1000).
-        """
+    def __init__(self, name, chips=1000, decision_provider=None):
         self.name = name
         self.chips = chips
         self.hand = []
         self.current_bet = 0
-        self.is_active = True  # Whether the player is still in the round
-        self.wins = 0  # Track the number of rounds won
-        self.total_rounds = 0  # Track the total number of rounds played
+        self.is_active = True
+        self.wins = 0
+        self.total_rounds = 0
+        self.last_action = "Waiting"
+        self.last_wager = 0
+        self._decision_provider = decision_provider or get_ai_decision
 
     def deal_hand(self, hand):
-        """
-        Assigns a hand of cards to the AI player.
-        
-        Args:
-            hand (list): A list of tuples representing the player's hand (e.g., [(10, 'hearts'), (9, 'diamonds')]).
-        """
         self.hand = hand
 
     def make_decision(self, community_cards, current_bet):
-        """
-        Makes a decision based on the player's hand, community cards, and the current bet on the table.
-        
-        Args:
-            community_cards (list): A list of tuples representing the community cards on the table.
-            current_bet (int): The current bet that the player needs to match.
-
-        Returns:
-            str: The AI's decision (fold, check, bet, raise).
-        """
+        self.last_wager = 0
         if not self.is_active or self.chips <= 0:
-            return "fold"  # Inactive or bankrupt players can't make decisions
+            self.last_action = "Folded"
+            return "fold"
 
-        # Get decision from the AI model via the Ollama API
-        decision = get_ai_decision(self.hand, community_cards)
-
-        # Handle decisions and update the player's state accordingly
+        decision = self._decision_provider(self.hand, community_cards)
         if decision == "fold":
             self.is_active = False
-            print(f"{self.name} folds.")
+            self.last_action = "Folded"
         elif decision == "check":
-            print(f"{self.name} checks.")
+            self.last_action = "Checked"
         elif decision == "bet":
-            bet_amount = self.calculate_bet_amount(current_bet)
-            self.chips -= bet_amount
-            self.current_bet = bet_amount
-            print(f"{self.name} bets {bet_amount}.")
+            target = self.calculate_bet_amount(current_bet)
+            self._wager_to(target)
+            self.last_action = f"Bet {self.last_wager}"
         elif decision == "raise":
-            raise_amount = self.calculate_raise_amount(current_bet)
-            self.chips -= raise_amount
-            self.current_bet = raise_amount
-            print(f"{self.name} raises by {raise_amount}.")
+            target = self.calculate_raise_amount(current_bet)
+            self._wager_to(target)
+            self.last_action = f"Raised {self.last_wager}"
         else:
-            # If the AI returns an invalid decision, default to folding
-            print(f"{self.name} folds by default (invalid response).")
+            decision = "fold"
             self.is_active = False
-
+            self.last_action = "Folded"
         return decision
 
-    def calculate_bet_amount(self, current_bet):
-        """
-        Calculate a more dynamic bet amount based on the current bet and AI's chips.
-        
-        Args:
-            current_bet (int): The current bet that the player needs to match.
-        
-        Returns:
-            int: The amount the player decides to bet.
-        """
-        bet_min = max(current_bet, 50)
-        bet_max = min(self.chips, current_bet + 200)
-        
-        if bet_max < bet_min:
-            return self.chips  # All-in if chips are too low
+    def _wager_to(self, target_bet):
+        additional = min(self.chips, max(0, target_bet - self.current_bet))
+        self.chips -= additional
+        self.current_bet += additional
+        self.last_wager = additional
 
-        return random.randint(bet_min, bet_max)
+    def post_blind(self, amount, label):
+        self.last_wager = min(self.chips, amount)
+        self.chips -= self.last_wager
+        self.current_bet = self.last_wager
+        self.last_action = f"{label} {self.last_wager}"
+        if self.chips == 0:
+            self.last_action += " (all-in)"
+        return self.last_wager
+
+    def calculate_bet_amount(self, current_bet):
+        maximum = self.current_bet + self.chips
+        minimum = max(current_bet, 50)
+        upper = min(maximum, current_bet + 200)
+        return maximum if upper < minimum else random.randint(minimum, upper)
 
     def calculate_raise_amount(self, current_bet):
-        """
-        Calculate a more dynamic raise amount based on the current bet and AI's chips.
-        
-        Args:
-            current_bet (int): The current bet that the player needs to match.
-        
-        Returns:
-            int: The amount the player decides to raise.
-        """
-        if self.chips <= current_bet * 2:
-            return self.chips  # Go all-in if not enough chips to raise properly
-        raise_min = current_bet * 2
-        raise_max = min(self.chips, current_bet * 3 + 100)
-        
-        if raise_max < raise_min:
-            return self.chips  # All-in
-
-        return random.randint(raise_min, raise_max)
+        maximum = self.current_bet + self.chips
+        minimum = max(current_bet + 1, current_bet * 2)
+        upper = min(maximum, max(minimum, current_bet * 3 + 100))
+        return maximum if maximum < minimum else random.randint(minimum, upper)
 
     def reset_for_next_round(self):
-        """
-        Resets the player's state for the next round.
-        """
         self.hand = []
         self.current_bet = 0
-        self.is_active = self.chips > 0  # Player remains active if they have chips
-        self.total_rounds += 1  # Increment total rounds played
+        self.is_active = self.chips > 0
+        self.last_action = "Waiting"
+        self.last_wager = 0
 
     def get_win_percentage(self):
-        """
-        Returns the player's win percentage based on rounds played and rounds won.
-        
-        Returns:
-            float: The player's win percentage (0-100).
-        """
-        if self.total_rounds == 0:
-            return 0.0
-        return (self.wins / self.total_rounds) * 100
+        return 0.0 if self.total_rounds == 0 else (self.wins / self.total_rounds) * 100
 
     def is_bankrupt(self):
-        """
-        Check if the player is out of chips.
-        
-        Returns:
-            bool: True if the player is bankrupt, False otherwise.
-        """
         return self.chips <= 0

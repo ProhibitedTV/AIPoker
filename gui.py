@@ -1,131 +1,259 @@
-import sys
+"""PyQt spectator interface with configurable pacing and card transitions."""
+
 import os
-from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QLabel, QPushButton, QTextEdit
-from PyQt5.QtGui import QFont, QPixmap
-from PyQt5.QtCore import Qt, QTimer
+import sys
+
+from PyQt5.QtCore import QPoint, QParallelAnimationGroup, QPropertyAnimation, QTimer, Qt, pyqtProperty
+from PyQt5.QtGui import QColor, QFont, QKeySequence, QPainter, QPen, QPixmap
+from PyQt5.QtWidgets import (
+    QApplication,
+    QCheckBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QShortcut,
+    QTableWidget,
+    QTableWidgetItem,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
+
+
+class AnimatedCardLabel(QLabel):
+    """Card label whose flip and slide are driven by Qt's event loop."""
+
+    def __init__(self, front, duration, parent=None):
+        super().__init__(parent)
+        self.front = front
+        self.back = QPixmap(80, 120)
+        self.back.fill(QColor("#183a64"))
+        self.duration = duration
+        self._flip_progress = 0.0
+        self.setFixedSize(80, 120)
+        self.setAlignment(Qt.AlignCenter)
+        self._animation = None
+        self.set_flip_progress(0.0)
+
+    def get_flip_progress(self):
+        return self._flip_progress
+
+    def set_flip_progress(self, value):
+        self._flip_progress = value
+        source = self.back if value < 0.5 else self.front
+        width = max(1, int(80 * abs(1 - 2 * value)))
+        self.setPixmap(source.scaled(width, 120, Qt.IgnoreAspectRatio, Qt.SmoothTransformation))
+
+    flipProgress = pyqtProperty(float, get_flip_progress, set_flip_progress)
+
+    def animate_in(self):
+        flip = QPropertyAnimation(self, b"flipProgress")
+        flip.setDuration(self.duration)
+        flip.setStartValue(0.0)
+        flip.setEndValue(1.0)
+        slide = QPropertyAnimation(self, b"pos")
+        slide.setDuration(self.duration)
+        slide.setStartValue(self.pos() - QPoint(60, 80))
+        slide.setEndValue(self.pos())
+        self._animation = QParallelAnimationGroup(self)
+        self._animation.addAnimation(flip)
+        self._animation.addAnimation(slide)
+        self._animation.start()
+
+
+class ChipHistoryChart(QWidget):
+    """Small season chart drawn directly from persisted chip snapshots."""
+
+    COLORS = ("#e6b94a", "#58b9ff", "#ff6f91", "#73dc8c", "#c792ea", "#ff9f43")
+
+    def __init__(self, metrics_store, parent=None):
+        super().__init__(parent)
+        self.metrics_store = metrics_store
+        self.setMinimumWidth(260)
+        self.setFixedHeight(165)
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.fillRect(self.rect(), QColor("#10251b"))
+        painter.setPen(QColor("white"))
+        painter.drawText(10, 20, "Chip distribution history")
+        if not self.metrics_store:
+            return
+        history = self.metrics_store.snapshot().get("chip_history", [])[-200:]
+        if len(history) < 2:
+            painter.setPen(QColor("#aaaaaa"))
+            painter.drawText(10, 45, "Complete two hands to chart the season")
+            return
+        names = list(history[-1]["players"])
+        values = [entry["players"].get(name, 0) for entry in history for name in names]
+        maximum = max(1, max(values))
+        left, top, right, bottom = 10, 30, self.width() - 10, self.height() - 15
+        for color_index, name in enumerate(names):
+            painter.setPen(QPen(QColor(self.COLORS[color_index % len(self.COLORS)]), 2))
+            points = []
+            for index, entry in enumerate(history):
+                x = left + (right - left) * index / (len(history) - 1)
+                y = bottom - (bottom - top) * entry["players"].get(name, 0) / maximum
+                points.append(QPoint(int(x), int(y)))
+            for start, end in zip(points, points[1:]):
+                painter.drawLine(start, end)
+
 
 class PokerGUI(QMainWindow):
-    def __init__(self, game):
+    def __init__(self, game, settings):
         super().__init__()
         self.game = game
-        self.card_image_path = os.path.join("images", "cards")  # Directory for card images
+        self.settings = settings
+        self.card_image_path = os.path.join(os.path.dirname(__file__), "images", "cards")
+        self.current_stage = 0
+        self.running = False
+        self.paused = settings.start_paused
+        self._remaining_delay = settings.stage_delay_ms
+        self._stage_before_pause = "Waiting"
+        self._has_started_once = False
+        self._shown_player_hands = [None] * game.num_players
+        self._shown_community = None
         self.init_ui()
-        self.current_stage = 0  # Track the game stage
+        self.timer = QTimer(self)
+        self.timer.setSingleShot(True)
+        self.timer.timeout.connect(self.advance_game_stage)
 
     def init_ui(self):
-        self.setWindowTitle('AI Poker Game')
-        self.showFullScreen()  # Set the application to fullscreen
+        self.setWindowTitle("AI Poker Game")
+        if self.settings.fullscreen:
+            self.showFullScreen()
+        self.setStyleSheet("background-color: #08712f; font-family: Arial; font-size: 16px; color: white;")
+        central = QWidget()
+        main = QVBoxLayout(central)
 
-        # Set casino-style background color and font
-        self.setStyleSheet("background-color: green; font-family: Arial; font-size: 16px; color: white;")
-        
-        # Main widget and layout
-        self.central_widget = QWidget()
-        self.main_layout = QVBoxLayout()
-
-        # Header layout for pot, dealer, and win percentages
-        self.header_layout = QHBoxLayout()
-
-        # Pot label
-        self.pot_label = QLabel(f"Pot: {self.game.pot}")
-        self.pot_label.setFont(QFont('Arial', 10))  # Reduce font size to 10px
-        self.pot_label.setFixedHeight(30)  # Set fixed height to minimize space
-        self.pot_label.setAlignment(Qt.AlignCenter)
-        self.pot_label.setStyleSheet("background-color: black; color: white; padding: 2px; border-radius: 5px;")  # Smaller padding
-        self.header_layout.addWidget(self.pot_label)
-
-        # Dealer label
-        self.dealer_label = QLabel("Dealer: AI Player 1")
-        self.dealer_label.setFont(QFont('Arial', 10))  # Reduce font size to 10px
-        self.dealer_label.setFixedHeight(30)  # Set fixed height
-        self.dealer_label.setAlignment(Qt.AlignCenter)
-        self.dealer_label.setStyleSheet("background-color: blue; color: white; padding: 2px; border-radius: 5px;")  # Smaller padding
-        self.header_layout.addWidget(self.dealer_label)
-
-        # Add player win percentages
+        header = QHBoxLayout()
+        self.pot_label = self._header_label("Pot: 0", "black")
+        self.dealer_label = self._header_label("Dealer: -", "#194ca0")
+        header.addWidget(self.pot_label)
+        header.addWidget(self.dealer_label)
         self.win_percentage_labels = []
-        for i in range(4):
-            win_percentage_label = QLabel(f"AI Player {i + 1} Win %: 0%")
-            win_percentage_label.setFont(QFont('Arial', 10))  # Reduce font size to 10px
-            win_percentage_label.setFixedHeight(30)  # Set fixed height
-            win_percentage_label.setAlignment(Qt.AlignCenter)
-            win_percentage_label.setStyleSheet("background-color: darkblue; color: white; padding: 2px; border-radius: 5px;")  # Smaller padding
-            self.header_layout.addWidget(win_percentage_label)
-            self.win_percentage_labels.append(win_percentage_label)
+        for player in self.game.players:
+            label = self._header_label(f"{player.name} Win %: 0%", "#142b75")
+            header.addWidget(label)
+            self.win_percentage_labels.append(label)
+        main.addLayout(header)
 
-        # Add the header layout to the main layout
-        self.main_layout.addLayout(self.header_layout)
-
-        # Create the poker table (players and community cards)
-        self.table_layout = QVBoxLayout()
-
-        # Add player labels and card areas
         self.players_layout = QHBoxLayout()
         self.player_labels = []
-        self.player_cards_layouts = []  # Layouts for player cards
-        self.player_action_labels = []  # New addition to show player actions (fold, call, etc.)
-        for i in range(4):
-            player_widget = QVBoxLayout()
+        self.player_cards_layouts = []
+        self.player_action_labels = []
+        for player in self.game.players:
+            column = QVBoxLayout()
+            name = QLabel(player.name)
+            name.setFont(QFont("Arial", 14))
+            name.setAlignment(Qt.AlignCenter)
+            column.addWidget(name)
+            cards = QHBoxLayout()
+            cards.setAlignment(Qt.AlignCenter)
+            column.addLayout(cards)
+            action = QLabel("Waiting")
+            action.setAlignment(Qt.AlignCenter)
+            column.addWidget(action)
+            self.player_labels.append(name)
+            self.player_cards_layouts.append(cards)
+            self.player_action_labels.append(action)
+            self.players_layout.addLayout(column)
+        main.addLayout(self.players_layout)
 
-            player_label = QLabel(f"AI Player {i + 1}")
-            player_label.setFont(QFont('Arial', 14))  # Slightly smaller
-            player_label.setAlignment(Qt.AlignCenter)
-            player_label.setStyleSheet("background-color: darkred; border-radius: 10px; padding: 8px;")  # Smaller padding
-            player_widget.addWidget(player_label)
-            
-            # Layout for card images
-            card_layout = QHBoxLayout()
-            card_layout.setAlignment(Qt.AlignCenter)
-            player_widget.addLayout(card_layout)
-
-            player_action = QLabel(f"Action: None")
-            player_action.setFont(QFont('Arial', 12))  # Reduced font size for actions
-            player_action.setAlignment(Qt.AlignCenter)
-            player_widget.addWidget(player_action)
-
-            self.player_labels.append(player_label)
-            self.player_cards_layouts.append(card_layout)
-            self.player_action_labels.append(player_action)
-            
-            self.players_layout.addLayout(player_widget)
-
-        self.table_layout.addLayout(self.players_layout)
-        
-        # Community cards in the middle
-        self.community_cards_layout = QHBoxLayout()  # Layout to hold community card images
-        self.community_cards_label = QLabel("Community Cards: ")
-        self.community_cards_label.setFont(QFont('Arial', 16))  # Slightly reduced font size for cards
+        self.community_cards_label = QLabel("Community Cards")
+        self.community_cards_label.setFont(QFont("Arial", 16))
         self.community_cards_label.setAlignment(Qt.AlignCenter)
-        self.community_cards_label.setStyleSheet("background-color: black; color: white; padding: 8px; border-radius: 5px;")
-        self.table_layout.addWidget(self.community_cards_label)
-        self.table_layout.addLayout(self.community_cards_layout)
+        self.community_cards_label.setStyleSheet("background-color: #000a; padding: 8px; border-radius: 5px;")
+        main.addWidget(self.community_cards_label)
+        self.community_cards_layout = QHBoxLayout()
+        self.community_cards_layout.setAlignment(Qt.AlignCenter)
+        main.addLayout(self.community_cards_layout)
 
-        self.main_layout.addLayout(self.table_layout)
-
-        # Game log (for showing decisions and outcomes)
+        lower = QHBoxLayout()
         self.game_log = QTextEdit()
-        self.game_log.setFont(QFont('Arial', 12))
         self.game_log.setReadOnly(True)
-        self.game_log.setFixedHeight(150)  # Smaller log at the bottom
-        self.main_layout.addWidget(self.game_log)
-        
-        # Button to start the game
-        self.start_button = QPushButton("Start Game")
-        self.start_button.setFont(QFont('Arial', 16))
-        self.start_button.setStyleSheet("background-color: gold; color: black; padding: 8px;")  # Reduced padding
-        self.start_button.clicked.connect(self.start_game)
-        self.main_layout.addWidget(self.start_button)
+        self.game_log.setFixedHeight(165)
+        lower.addWidget(self.game_log, 2)
+        self.leaderboard = QTableWidget(self.game.num_players, 5)
+        self.leaderboard.setHorizontalHeaderLabels(["Player", "Hands", "Wins", "Win %", "Net"])
+        self.leaderboard.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.leaderboard.verticalHeader().hide()
+        self.leaderboard.setFixedHeight(165)
+        lower.addWidget(self.leaderboard, 2)
+        self.chip_history_chart = ChipHistoryChart(self.game.metrics_store)
+        lower.addWidget(self.chip_history_chart, 2)
+        main.addLayout(lower)
 
-        self.central_widget.setLayout(self.main_layout)
-        self.setCentralWidget(self.central_widget)
+        controls = QHBoxLayout()
+        self.start_button = QPushButton("Start")
+        self.start_button.clicked.connect(self.start_game)
+        self.pause_button = QPushButton("Resume" if self.paused else "Pause")
+        self.pause_button.clicked.connect(self.toggle_pause)
+        self.pause_button.setEnabled(False)
+        self.continuous_checkbox = QCheckBox("Continuous play")
+        self.continuous_checkbox.setChecked(self.settings.continuous_play)
+        self.reset_stats_button = QPushButton("Reset season stats")
+        self.reset_stats_button.clicked.connect(self.reset_statistics)
+        for widget in (self.start_button, self.pause_button, self.continuous_checkbox, self.reset_stats_button):
+            controls.addWidget(widget)
+        main.addLayout(controls)
+        self.setCentralWidget(central)
+
+        QShortcut(QKeySequence("Space"), self, activated=self.toggle_pause)
+        QShortcut(QKeySequence("R"), self, activated=self.resume_game)
+        self.update_visuals()
+
+    @staticmethod
+    def _header_label(text, color):
+        label = QLabel(text)
+        label.setFont(QFont("Arial", 10))
+        label.setFixedHeight(30)
+        label.setAlignment(Qt.AlignCenter)
+        label.setStyleSheet(f"background-color: {color}; padding: 2px; border-radius: 5px;")
+        return label
 
     def start_game(self):
-        self.start_button.hide()  # Hide the start button after the game starts
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.advance_game_stage)
-        self.timer.start(5000)  # 5 seconds for each stage
+        if self.running:
+            return
+        self.running = True
+        self.paused = self.settings.start_paused and not self._has_started_once
+        self._has_started_once = True
+        self.start_button.setEnabled(False)
+        self.pause_button.setEnabled(True)
+        self.pause_button.setText("Resume" if self.paused else "Pause")
+        if not self.paused:
+            self.timer.start(0)
+
+    def toggle_pause(self):
+        if not self.running:
+            return
+        if self.paused:
+            self.resume_game()
+        else:
+            self.paused = True
+            self._remaining_delay = max(0, self.timer.remainingTime())
+            self.timer.stop()
+            self.pause_button.setText("Resume")
+            self._stage_before_pause = self.game.stage
+            self.game.stage = "Paused"
+            self.update_visuals()
+
+    def resume_game(self):
+        if not self.running or not self.paused:
+            return
+        self.paused = False
+        self.pause_button.setText("Pause")
+        self.game.stage = self._stage_before_pause
+        self.timer.start(self._remaining_delay)
 
     def advance_game_stage(self):
+        if self.paused:
+            return
         if self.current_stage == 0:
             self.game.play_pre_flop()
         elif self.current_stage == 1:
@@ -136,125 +264,123 @@ class PokerGUI(QMainWindow):
             self.game.play_river()
         elif self.current_stage == 4:
             self.show_winner()
-            QTimer.singleShot(5000, self.reset_game_for_next_round)  # Wait 5 seconds, then reset for next round
+            self.update_visuals()
+            if self.continuous_checkbox.isChecked():
+                self.current_stage = 0
+                self.timer.start(self.settings.between_hands_delay_ms)
+            else:
+                self.running = False
+                self.start_button.setText("Start next hand")
+                self.start_button.setEnabled(True)
+                self.pause_button.setEnabled(False)
+                self.current_stage = 0
+            return
 
         self.current_stage += 1
+        if sum(player.is_active for player in self.game.players) <= 1:
+            self.current_stage = 4
         self.update_visuals()
+        self.timer.start(self.settings.stage_delay_ms)
 
     def show_winner(self):
-        winner, hand_description = self.game.determine_winner()
-        if winner:
-            winner_text = f"Winner: {winner.name} with a {hand_description}!"
-        else:
-            winner_text = "No winner this round."
-        self.game_log.append(f"\n{winner_text}")
+        self.game.determine_winner()
         self.update_win_percentages()
 
-    def reset_game_for_next_round(self):
-        """Resets the game for the next round and starts a new one."""
-        self.game.log.append("\n--- New Round ---")  # Add to the game log for the new round
-        self.current_stage = 0  # Reset the stage tracker
-        self.game.deck.reset()  # Reset the deck
-        for player in self.game.players:
-            player.reset_for_next_round()  # Reset each player for the next round
-        self.game.community_cards = []  # Clear the community cards
-        self.game.pot = 0  # Reset the pot
-        self.update_visuals()  # Update visuals for the reset state
-        self.timer.start(5000)  # Restart the round timer
+    def reset_statistics(self):
+        answer = QMessageBox.question(
+            self,
+            "Reset season statistics",
+            "Reset the persistent leaderboard and streak history?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if answer == QMessageBox.Yes:
+            self.game.reset_metrics()
+            self.update_win_percentages()
+            self.update_leaderboard()
 
     def update_visuals(self):
         self.update_community_cards(self.game.community_cards)
-        self.update_pot(self.game.pot)
-        self.update_dealer(self.game.dealer_position)
-
-        # Highlight the current player and update their cards and actions
-        for i, player in enumerate(self.game.players):
-            if player.is_active:
-                self.player_labels[i].setStyleSheet("background-color: yellow; color: black; border-radius: 10px;")
-                self.update_player_cards(i, player.hand)
-                self.player_action_labels[i].setText(f"Action: {player.current_bet} chips")  # Show current action
-            else:
-                self.player_labels[i].setStyleSheet("background-color: darkred; color: white; border-radius: 10px;")
-                self.clear_player_cards(i)
-                self.player_action_labels[i].setText(f"Action: Folded")
-
-        # Update game log and auto-scroll to the latest updates
+        self.pot_label.setText(f"Pot: {self.game.pot}")
+        dealer = "-" if self.game.dealer_position < 0 else self.game.players[self.game.dealer_position].name
+        self.dealer_label.setText(f"Dealer: {dealer}")
+        for index, player in enumerate(self.game.players):
+            color = "#d8b51f; color: black" if index == self.game.next_to_act else "#7b1818; color: white"
+            if not player.is_active:
+                color = "#3d3d3d; color: #aaa"
+            self.player_labels[index].setStyleSheet(f"background-color: {color}; border-radius: 10px; padding: 6px;")
+            self.player_labels[index].setText(f"{player.name} · {player.chips} chips")
+            self.update_player_cards(index, player.hand if player.is_active else [])
+            self.player_action_labels[index].setText(player.last_action)
         self.update_game_log()
+        self.update_win_percentages()
+        self.update_leaderboard()
 
-    def update_community_cards(self, community_cards):
-        # Clear previous community cards
-        for i in reversed(range(self.community_cards_layout.count())):
-            self.community_cards_layout.itemAt(i).widget().deleteLater()
+    def update_community_cards(self, cards):
+        signature = tuple(cards)
+        if signature == self._shown_community:
+            return
+        self._clear_layout(self.community_cards_layout)
+        for card in cards:
+            self._add_animated_card(self.community_cards_layout, card)
+        self._shown_community = signature
 
-        # Display community card images
-        for card in community_cards:
-            card_image = self.get_card_image(card)
-            card_label = QLabel()
-            card_label.setPixmap(card_image)
-            self.community_cards_layout.addWidget(card_label)
-
-    def update_player_cards(self, player_index, hand):
-        # Clear previous cards
-        for i in reversed(range(self.player_cards_layouts[player_index].count())):
-            self.player_cards_layouts[player_index].itemAt(i).widget().deleteLater()
-
-        # Display player card images
+    def update_player_cards(self, index, hand):
+        signature = tuple(hand)
+        if signature == self._shown_player_hands[index]:
+            return
+        layout = self.player_cards_layouts[index]
+        self._clear_layout(layout)
         for card in hand:
-            card_image = self.get_card_image(card)
-            card_label = QLabel()
-            card_label.setPixmap(card_image)
-            self.player_cards_layouts[player_index].addWidget(card_label)
+            self._add_animated_card(layout, card)
+        self._shown_player_hands[index] = signature
 
-    def clear_player_cards(self, player_index):
-        # Clear card images for folded players
-        for i in reversed(range(self.player_cards_layouts[player_index].count())):
-            self.player_cards_layouts[player_index].itemAt(i).widget().deleteLater()
+    def _add_animated_card(self, layout, card):
+        label = AnimatedCardLabel(self.get_card_image(card), self.settings.animation_duration_ms)
+        layout.addWidget(label)
+        QTimer.singleShot(0, label.animate_in)
+
+    @staticmethod
+    def _clear_layout(layout):
+        for index in reversed(range(layout.count())):
+            widget = layout.itemAt(index).widget()
+            if widget:
+                widget.deleteLater()
 
     def get_card_image(self, card):
         rank, suit = card
-        suit = suit.lower()
-
-        # Map ranks to face cards
-        rank_map = {
-            11: 'jack',
-            12: 'queen',
-            13: 'king',
-            14: 'ace'
-        }
-        rank_str = rank_map.get(rank, str(rank))
-        card_filename = f"{rank_str}_of_{suit}.png"
-        card_path = os.path.join(self.card_image_path, card_filename)
-
-        # Load and scale the card image
-        pixmap = QPixmap(card_path)
-        scaled_pixmap = pixmap.scaled(80, 120, Qt.KeepAspectRatio, Qt.SmoothTransformation)  # 80x120 size limit
-
-        return scaled_pixmap
-
-    def update_pot(self, pot):
-        self.pot_label.setText(f"Pot: {pot}")
-
-    def update_dealer(self, dealer_position):
-        self.dealer_label.setText(f"Dealer: AI Player {dealer_position + 1}")
+        rank_name = {11: "jack", 12: "queen", 13: "king", 14: "ace"}.get(rank, str(rank))
+        path = os.path.join(self.card_image_path, f"{rank_name}_of_{suit.lower()}.png")
+        return QPixmap(path).scaled(80, 120, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
     def update_game_log(self):
-        # This function updates the log with game details
-        log_text = "\n".join(self.game.get_log())  # Fetch log from game
-        self.game_log.setText(log_text)
-        
-        # Automatically scroll to the bottom of the log
+        self.game_log.setPlainText("\n".join(self.game.get_log()))
         self.game_log.moveCursor(self.game_log.textCursor().End)
 
     def update_win_percentages(self):
-        """
-        Updates the win percentage labels for each player.
-        """
-        for i, player in enumerate(self.game.players):
-            win_percentage = player.get_win_percentage()
-            self.win_percentage_labels[i].setText(f"AI Player {i + 1} Win %: {win_percentage:.2f}%")
+        for index, player in enumerate(self.game.players):
+            self.win_percentage_labels[index].setText(
+                f"{player.name} Win %: {player.get_win_percentage():.2f}%"
+            )
 
-def run_gui(game):
+    def update_leaderboard(self):
+        data = self.game.metrics_store.snapshot() if self.game.metrics_store else {"players": {}}
+        for row, player in enumerate(self.game.players):
+            stats = data["players"].get(player.name, {})
+            values = [
+                player.name,
+                stats.get("hands_played", player.total_rounds),
+                stats.get("hands_won", player.wins),
+                f"{stats.get('win_rate', player.get_win_percentage()):.1f}%",
+                stats.get("net_chips", 0),
+            ]
+            for column, value in enumerate(values):
+                self.leaderboard.setItem(row, column, QTableWidgetItem(str(value)))
+        self.chip_history_chart.update()
+
+
+def run_gui(game, settings):
     app = QApplication(sys.argv)
-    gui = PokerGUI(game)
+    gui = PokerGUI(game, settings)
     gui.show()
-    sys.exit(app.exec_())
+    return app.exec_()

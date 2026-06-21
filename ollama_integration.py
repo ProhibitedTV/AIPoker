@@ -1,9 +1,10 @@
-import requests
 import json
 import re
+import os
 
 OLLAMA_API_URL = "http://localhost:11434/api/chat"
 OLLAMA_LIST_URL = "http://localhost:11434/api/tags"
+OLLAMA_TIMEOUT_SECONDS = float(os.environ.get("OLLAMA_TIMEOUT_SECONDS", "30"))
 
 def get_available_models():
     """
@@ -12,8 +13,10 @@ def get_available_models():
     Returns:
         list: A list of model names.
     """
+    import requests
+
     try:
-        response = requests.get(OLLAMA_LIST_URL)
+        response = requests.get(OLLAMA_LIST_URL, timeout=OLLAMA_TIMEOUT_SECONDS)
         if response.status_code == 200:
             models = response.json().get("models", [])
             model_names = [model['name'] for model in models]
@@ -73,6 +76,8 @@ def get_ai_decision(player_hand, community_cards, max_retries=2):
     Returns:
         str: The AI's decision (e.g., "fold", "check", "bet", "raise").
     """
+    import requests
+
     hand_str = ', '.join([f"{card[0]} of {card[1]}" for card in player_hand])
     community_str = ', '.join([f"{card[0]} of {card[1]}" for card in community_cards])
 
@@ -94,7 +99,11 @@ def get_ai_decision(player_hand, community_cards, max_retries=2):
     # Retry logic in case of invalid responses
     for attempt in range(max_retries):
         try:
-            response = requests.post(OLLAMA_API_URL, data=json.dumps(data))
+            response = requests.post(
+                OLLAMA_API_URL,
+                json=data,
+                timeout=OLLAMA_TIMEOUT_SECONDS,
+            )
             response.raise_for_status()
 
             response_json = response.json()
