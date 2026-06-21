@@ -3,7 +3,18 @@
 import os
 import sys
 
-from PyQt5.QtCore import QPoint, QParallelAnimationGroup, QPropertyAnimation, QTimer, Qt, pyqtProperty
+from PyQt5.QtCore import (
+    QObject,
+    QPoint,
+    QParallelAnimationGroup,
+    QPropertyAnimation,
+    QRunnable,
+    QThreadPool,
+    QTimer,
+    Qt,
+    pyqtProperty,
+    pyqtSignal,
+)
 from PyQt5.QtGui import QColor, QFont, QKeySequence, QPainter, QPen, QPixmap
 from PyQt5.QtWidgets import (
     QApplication,
@@ -64,6 +75,28 @@ class AnimatedCardLabel(QLabel):
         self._animation.start()
 
 
+class StageSignals(QObject):
+    finished = pyqtSignal()
+    failed = pyqtSignal(str)
+
+
+class StageWorker(QRunnable):
+    """Run model-backed game work without blocking Qt's event loop."""
+
+    def __init__(self, action):
+        super().__init__()
+        self.action = action
+        self.signals = StageSignals()
+
+    def run(self):
+        try:
+            self.action()
+        except Exception as error:
+            self.signals.failed.emit(f"{type(error).__name__}: {error}")
+        else:
+            self.signals.finished.emit()
+
+
 class ChipHistoryChart(QWidget):
     """Small season chart drawn directly from persisted chip snapshots."""
 
@@ -118,10 +151,16 @@ class PokerGUI(QMainWindow):
         self._has_started_once = False
         self._shown_player_hands = [None] * game.num_players
         self._shown_community = None
+        self._stage_in_progress = False
+        self._stage_worker = None
+        self.thread_pool = QThreadPool.globalInstance()
         self.init_ui()
         self.timer = QTimer(self)
         self.timer.setSingleShot(True)
         self.timer.timeout.connect(self.advance_game_stage)
+        self.refresh_timer = QTimer(self)
+        self.refresh_timer.setInterval(250)
+        self.refresh_timer.timeout.connect(self.update_visuals)
 
     def init_ui(self):
         self.setWindowTitle("AI Poker Game")
@@ -179,8 +218,8 @@ class PokerGUI(QMainWindow):
         self.game_log.setReadOnly(True)
         self.game_log.setFixedHeight(165)
         lower.addWidget(self.game_log, 2)
-        self.leaderboard = QTableWidget(self.game.num_players, 5)
-        self.leaderboard.setHorizontalHeaderLabels(["Player", "Hands", "Wins", "Win %", "Net"])
+        self.leaderboard = QTableWidget(self.game.num_players, 6)
+        self.leaderboard.setHorizontalHeaderLabels(["Player", "Hands", "Wins", "Ties", "Win %", "Net"])
         self.leaderboard.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.leaderboard.verticalHeader().hide()
         self.leaderboard.setFixedHeight(165)
@@ -249,42 +288,64 @@ class PokerGUI(QMainWindow):
         self.paused = False
         self.pause_button.setText("Pause")
         self.game.stage = self._stage_before_pause
-        self.timer.start(self._remaining_delay)
+        if not self._stage_in_progress:
+            self.timer.start(self._remaining_delay)
 
     def advance_game_stage(self):
-        if self.paused:
+        if self.paused or self._stage_in_progress:
             return
-        if self.current_stage == 0:
-            self.game.play_pre_flop()
-        elif self.current_stage == 1:
-            self.game.play_flop()
-        elif self.current_stage == 2:
-            self.game.play_turn()
-        elif self.current_stage == 3:
-            self.game.play_river()
-        elif self.current_stage == 4:
-            self.show_winner()
-            self.update_visuals()
+        actions = (
+            self.game.play_pre_flop,
+            self.game.play_flop,
+            self.game.play_turn,
+            self.game.play_river,
+            self.game.determine_winner,
+        )
+        showdown = self.current_stage == 4
+        self._stage_in_progress = True
+        self._stage_worker = StageWorker(actions[self.current_stage])
+        self._stage_worker.signals.finished.connect(lambda: self._stage_finished(showdown))
+        self._stage_worker.signals.failed.connect(self._stage_failed)
+        self.refresh_timer.start()
+        self.thread_pool.start(self._stage_worker)
+
+    def _stage_finished(self, showdown):
+        self.refresh_timer.stop()
+        self._stage_in_progress = False
+        self._stage_worker = None
+        self.update_visuals()
+
+        if showdown:
             if self.continuous_checkbox.isChecked():
                 self.current_stage = 0
-                self.timer.start(self.settings.between_hands_delay_ms)
+                delay = self.settings.between_hands_delay_ms
             else:
                 self.running = False
                 self.start_button.setText("Start next hand")
                 self.start_button.setEnabled(True)
                 self.pause_button.setEnabled(False)
                 self.current_stage = 0
-            return
+                return
+        else:
+            self.current_stage += 1
+            if sum(player.is_active for player in self.game.players) <= 1:
+                self.current_stage = 4
+            delay = self.settings.stage_delay_ms
 
-        self.current_stage += 1
-        if sum(player.is_active for player in self.game.players) <= 1:
-            self.current_stage = 4
+        self._remaining_delay = delay
+        if not self.paused:
+            self.timer.start(delay)
+
+    def _stage_failed(self, error):
+        self.refresh_timer.stop()
+        self._stage_in_progress = False
+        self._stage_worker = None
+        self.game.recover_from_error(error)
+        self.current_stage = 0
+        self._remaining_delay = self.settings.between_hands_delay_ms
         self.update_visuals()
-        self.timer.start(self.settings.stage_delay_ms)
-
-    def show_winner(self):
-        self.game.determine_winner()
-        self.update_win_percentages()
+        if not self.paused:
+            self.timer.start(self._remaining_delay)
 
     def reset_statistics(self):
         answer = QMessageBox.question(
@@ -371,6 +432,7 @@ class PokerGUI(QMainWindow):
                 player.name,
                 stats.get("hands_played", player.total_rounds),
                 stats.get("hands_won", player.wins),
+                stats.get("hands_tied", player.ties),
                 f"{stats.get('win_rate', player.get_win_percentage()):.1f}%",
                 stats.get("net_chips", 0),
             ]

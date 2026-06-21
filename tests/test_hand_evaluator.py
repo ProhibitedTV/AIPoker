@@ -62,3 +62,27 @@ def test_high_card():
     community = [(9, 'hearts'), (7, 'clubs'), (4, 'spades'), (2, 'clubs'), (8, 'diamonds')]
     hand_rank, _ = evaluate_hand(hand, community)
     assert hand_rank == 1
+
+
+def test_chooses_highest_of_multiple_straights():
+    hand = [(2, 'hearts'), (8, 'clubs')]
+    community = [(3, 'diamonds'), (4, 'spades'), (5, 'hearts'), (6, 'clubs'), (7, 'spades')]
+    assert evaluate_hand(hand, community) == (5, [8])
+
+
+def test_wheel_straight_uses_five_as_high_card():
+    hand = [(14, 'hearts'), (2, 'clubs')]
+    community = [(3, 'diamonds'), (4, 'spades'), (5, 'hearts'), (9, 'clubs'), (13, 'spades')]
+    assert evaluate_hand(hand, community) == (5, [5])
+
+
+def test_two_triplets_form_the_best_full_house():
+    hand = [(13, 'hearts'), (13, 'clubs')]
+    community = [(13, 'diamonds'), (12, 'spades'), (12, 'hearts'), (12, 'clubs'), (2, 'spades')]
+    assert evaluate_hand(hand, community) == (7, [13, 12])
+
+
+def test_flush_tiebreak_uses_only_the_best_five_suited_cards():
+    hand = [(14, 'hearts'), (3, 'hearts')]
+    community = [(13, 'hearts'), (11, 'hearts'), (8, 'hearts'), (7, 'hearts'), (2, 'clubs')]
+    assert evaluate_hand(hand, community) == (6, [14, 13, 11, 8, 7])
