@@ -36,6 +36,21 @@ def test_multiway_and_heads_up_action_order():
     assert [seat for street, seat in order if street == "flop"] == [1, 0]
 
 
+def test_broadcast_pacing_gives_deals_and_actions_distinct_readable_beats():
+    pauses = []
+    game = PokerGame(
+        4,
+        decision_provider=passive,
+        action_delay_ms=1200,
+        deal_delay_ms=300,
+        sleep_provider=pauses.append,
+    )
+    game.play_pre_flop()
+    # Four dealt seats + two blind placements, then one decision per seat.
+    assert pauses.count(0.3) == 6
+    assert pauses.count(1.2) == 4
+
+
 def test_legal_actions_enforce_call_minimum_raise_and_closed_action():
     game = PokerGame(2, decision_provider=passive)
     for player in game.players:

@@ -15,6 +15,8 @@ def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Run the AI Poker spectator table")
     parser.add_argument("--config", default="config.json", help="JSON settings file")
     parser.add_argument("--stage-delay", type=float, help="Seconds between game stages")
+    parser.add_argument("--action-delay", type=float, help="Minimum seconds each action remains readable")
+    parser.add_argument("--deal-delay", type=float, help="Seconds between dealt seats and forced bets")
     parser.add_argument("--hand-delay", type=float, help="Seconds between hands")
     parser.add_argument("--animation-duration", type=float, help="Card animation duration in seconds")
     parser.add_argument("--overlay-port", type=int)
@@ -38,6 +40,10 @@ def build_settings(args):
     settings = AppSettings.load(args.config)
     if args.stage_delay is not None:
         settings.stage_delay_ms = max(0, int(args.stage_delay * 1000))
+    if args.action_delay is not None:
+        settings.action_delay_ms = max(0, int(args.action_delay * 1000))
+    if args.deal_delay is not None:
+        settings.deal_delay_ms = max(0, int(args.deal_delay * 1000))
     if args.hand_delay is not None:
         settings.between_hands_delay_ms = max(0, int(args.hand_delay * 1000))
     if args.animation_duration is not None:
@@ -93,6 +99,8 @@ def main(argv=None):
         checkpoint_path=settings.checkpoint_path,
         equity_samples=settings.equity_samples,
         analysis_depth=settings.analysis_depth,
+        action_delay_ms=settings.action_delay_ms,
+        deal_delay_ms=settings.deal_delay_ms,
     )
     commentary = CommentaryService(
         enabled=settings.tts_enabled,

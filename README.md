@@ -56,6 +56,16 @@ python scripts/preview_overlay.py
 python scripts/preview_gui.py ui-preview.png
 ```
 
+### Human-readable broadcast pacing
+
+The default Broadcast pace guarantees a visible beat even when a model answers instantly: 320 ms between dealt seats and forced bets, 1.25 seconds per player action, 4.5 seconds between streets, and 6.5 seconds after each hand. Model inference and pacing both run away from Qt's event thread, so the interface stays responsive. Cinematic, Broadcast, and Brisk presets remain human-legible; CLI/config values can still be set to zero for headless tests and accelerated simulations.
+
+Only newly dealt cards flip, only changed wagers slide chips forward, and winners retain a gold award treatment long enough to read the result. Reduced-motion mode disables these transitions without removing state information.
+
+### Audience-first spectator design
+
+The OBS scene explains each street in plain English, expands dealer and blind abbreviations, identifies the acting player, describes the immediate choice, and labels equity as “chance to win.” A five-step hand tracker, chip-leader marker, big-pot and all-in tension cues, newcomer-friendly statistics, winner takeover, and restrained celebration animation keep the story legible even for viewers who have never played poker. These layers are event-driven, so idle polling never replays a card, chip, action, or award animation.
+
 ## Rules and house policy
 
 Tournament behavior follows the latest inspected published [Poker TDA rules](https://www.pokertda.com/poker-tda-rules/), including heads-up blind/action order, short all-in reopening, dead-button progression, big-blind ante handling, side-pot eligibility, and odd chips clockwise from the button.
