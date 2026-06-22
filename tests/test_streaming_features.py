@@ -69,6 +69,8 @@ class StreamingFeatureTests(unittest.TestCase):
                 state = json.load(response)
             with urlopen(server.url, timeout=2) as response:
                 html = response.read().decode("utf-8")
+            with urlopen(f"http://127.0.0.1:{server.port}/stream-info", timeout=2) as response:
+                stream_info = json.load(response)
             self.assertEqual(state["pot"], 0)
             self.assertEqual(state["schema_version"], 2)
             self.assertEqual(len(state["players"]), 2)
@@ -84,6 +86,21 @@ class StreamingFeatureTests(unittest.TestCase):
             self.assertIn("PRIVATE CARDS", html)
             self.assertIn('class="winner-banner"', html)
             self.assertIn("reduced *", html)
+            self.assertIn("SIMULATION ONLY", html)
+            self.assertIn("No Real Money", stream_info["title"])
+            self.assertIn("fictional chips", stream_info["description"])
+            self.assertEqual(len(stream_info["players"]), 2)
+            self.assertNotIn("hole_cards", json.dumps(stream_info))
+        finally:
+            server.close()
+
+    def test_overlay_simulation_disclaimer_can_be_hidden(self):
+        game = PokerGame(2, decision_provider=lambda *_: "check")
+        server = OverlayServer(game, port=0, disclaimer_enabled=False).start()
+        try:
+            with urlopen(server.url, timeout=2) as response:
+                html = response.read().decode("utf-8")
+            self.assertIn('class="simulation-tag hidden"', html)
         finally:
             server.close()
 
