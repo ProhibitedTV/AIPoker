@@ -32,6 +32,7 @@ def test_audio_service_maps_poker_events_to_distinct_cues():
     assert AudioService._cue_for_event({"type": "deal"}) == "card"
     assert AudioService._cue_for_event({"type": "action", "message": "P1 raises 50"}) == "chips"
     assert AudioService._cue_for_event({"type": "action", "message": "P1 checks"}) == "action"
+    assert AudioService._cue_for_event({"type": "action", "message": "P1 moves all-in"}) == "all_in"
     assert AudioService._cue_for_event({"type": "winner"}) == "winner"
     assert AudioService._cue_for_event({"type": "error"}) == "error"
 

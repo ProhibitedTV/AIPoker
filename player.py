@@ -1,86 +1,152 @@
-"""AI poker player state and wager handling."""
+"""Poker seat state and model-backed decision compatibility helpers."""
 
-import random
+from dataclasses import dataclass, field
+import inspect
+import re
 
 from ollama_integration import get_ai_decision
 
 
+@dataclass(frozen=True)
+class PlayerProfile:
+    id: str
+    name: str
+    persona: str = "balanced"
+    model: str = "auto"
+    color: str = "#e6b94a"
+    voice: str = ""
+    temperature: float = 0.25
+
+    @classmethod
+    def from_value(cls, value, seat):
+        if isinstance(value, cls):
+            return value
+        value = value or {}
+        color = str(value.get("color", "#e6b94a"))
+        if not re.fullmatch(r"#[0-9a-fA-F]{3,8}", color):
+            color = "#e6b94a"
+        return cls(
+            id=str(value.get("id", f"seat-{seat + 1}")),
+            name=str(value.get("name", f"AI Player {seat + 1}")),
+            persona=str(value.get("persona", "balanced")),
+            model=str(value.get("model", "auto")),
+            color=color,
+            voice=str(value.get("voice", "")),
+            temperature=float(value.get("temperature", 0.25)),
+        )
+
+
+@dataclass
 class AIPlayer:
-    def __init__(self, name, chips=1000, decision_provider=None):
-        self.name = name
-        self.chips = chips
-        self.hand = []
-        self.current_bet = 0
-        self.is_active = True
-        self.wins = 0
-        self.ties = 0
-        self.total_rounds = 0
-        self.last_action = "Waiting"
-        self.last_wager = 0
-        self._decision_provider = decision_provider or get_ai_decision
+    name: str
+    chips: int = 2000
+    decision_provider: object = None
+    seat: int = 0
+    profile: PlayerProfile = None
+    hand: list = field(default_factory=list)
+    current_bet: int = 0
+    total_committed: int = 0
+    is_active: bool = True
+    folded: bool = False
+    all_in: bool = False
+    eliminated: bool = False
+    wins: int = 0
+    ties: int = 0
+    total_rounds: int = 0
+    last_action: str = "Waiting"
+    last_wager: int = 0
+    acted_since_full_raise: bool = False
+    voluntarily_put_money: bool = False
+    preflop_raised: bool = False
+    three_bet: bool = False
+    bets_raises: int = 0
+    calls: int = 0
+    went_to_showdown: bool = False
+    won_at_showdown: bool = False
+    all_in_counted: bool = False
+
+    def __post_init__(self):
+        self.profile = self.profile or PlayerProfile(f"seat-{self.seat + 1}", self.name)
+        self.name = self.profile.name
+        self._decision_provider = self.decision_provider or get_ai_decision
+
+    @property
+    def id(self):
+        return self.profile.id
+
+    @property
+    def status(self):
+        if self.eliminated:
+            return "eliminated"
+        if self.folded:
+            return "folded"
+        if self.all_in:
+            return "all_in"
+        if self.is_active:
+            return "active"
+        return "sitting_out"
+
+    @property
+    def can_act(self):
+        return self.is_active and not self.folded and not self.all_in and self.chips > 0
 
     def deal_hand(self, hand):
-        self.hand = hand
+        self.hand = list(hand)
 
-    def make_decision(self, community_cards, current_bet):
-        self.last_wager = 0
-        if not self.is_active or self.chips <= 0:
-            self.last_action = "Folded"
-            return "fold"
+    def request_decision(self, context):
+        """Call new context providers while retaining two-argument providers."""
+        provider = self._decision_provider
+        try:
+            signature = inspect.signature(provider)
+            positional = [
+                parameter
+                for parameter in signature.parameters.values()
+                if parameter.kind in (parameter.POSITIONAL_ONLY, parameter.POSITIONAL_OR_KEYWORD)
+            ]
+            required = [parameter for parameter in positional if parameter.default is parameter.empty]
+            if len(required) >= 2:
+                return provider(self.hand, context.get("community_cards_raw", []))
+        except (TypeError, ValueError):
+            pass
+        return provider(context)
 
-        decision = self._decision_provider(self.hand, community_cards)
-        if decision == "fold":
-            self.is_active = False
-            self.last_action = "Folded"
-        elif decision == "check":
-            self.last_action = "Checked"
-        elif decision == "bet":
-            target = self.calculate_bet_amount(current_bet)
-            self._wager_to(target)
-            self.last_action = f"Bet {self.last_wager}"
-        elif decision == "raise":
-            target = self.calculate_raise_amount(current_bet)
-            self._wager_to(target)
-            self.last_action = f"Raised {self.last_wager}"
-        else:
-            decision = "fold"
-            self.is_active = False
-            self.last_action = "Folded"
-        return decision
+    def commit(self, amount, street=True):
+        paid = min(self.chips, max(0, int(amount)))
+        self.chips -= paid
+        if street:
+            self.current_bet += paid
+        self.total_committed += paid
+        self.last_wager = paid
+        if self.chips == 0 and self.is_active and not self.folded:
+            self.all_in = True
+        return paid
 
-    def _wager_to(self, target_bet):
-        additional = min(self.chips, max(0, target_bet - self.current_bet))
-        self.chips -= additional
-        self.current_bet += additional
-        self.last_wager = additional
+    def wager_to(self, target):
+        return self.commit(max(0, int(target) - self.current_bet))
 
     def post_blind(self, amount, label):
-        self.last_wager = min(self.chips, amount)
-        self.chips -= self.last_wager
-        self.current_bet = self.last_wager
-        self.last_action = f"{label} {self.last_wager}"
-        if self.chips == 0:
-            self.last_action += " (all-in)"
-        return self.last_wager
-
-    def calculate_bet_amount(self, current_bet):
-        maximum = self.current_bet + self.chips
-        minimum = max(current_bet, 50)
-        upper = min(maximum, current_bet + 200)
-        return maximum if upper < minimum else random.randint(minimum, upper)
-
-    def calculate_raise_amount(self, current_bet):
-        maximum = self.current_bet + self.chips
-        minimum = max(current_bet + 1, current_bet * 2)
-        upper = min(maximum, max(minimum, current_bet * 3 + 100))
-        return maximum if maximum < minimum else random.randint(minimum, upper)
+        paid = self.commit(amount)
+        self.last_action = f"{label} {paid}" + (" (all-in)" if self.all_in else "")
+        return paid
 
     def reset_for_next_round(self):
         self.hand = []
         self.current_bet = 0
-        self.is_active = self.chips > 0
+        self.total_committed = 0
+        self.folded = False
+        self.all_in = False
+        self.is_active = self.chips > 0 and not self.eliminated
         self.last_action = "Waiting"
         self.last_wager = 0
+        self.acted_since_full_raise = False
+        self.voluntarily_put_money = False
+        self.preflop_raised = False
+        self.three_bet = False
+        self.bets_raises = 0
+        self.calls = 0
+        self.went_to_showdown = False
+        self.won_at_showdown = False
+        self.all_in_counted = False
 
     def get_win_percentage(self):
         return 0.0 if self.total_rounds == 0 else (self.wins / self.total_rounds) * 100

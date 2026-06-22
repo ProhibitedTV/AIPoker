@@ -1,11 +1,11 @@
 """Command-line entry point for AI Poker."""
 
 import argparse
+import sys
 
 from audio import AudioService
 from commentary import CommentaryService
 from game import PokerGame
-from gui import run_gui
 from metrics import MetricsStore
 from overlay_server import OverlayServer
 from settings import AppSettings
@@ -19,8 +19,13 @@ def parse_args(argv=None):
     parser.add_argument("--animation-duration", type=float, help="Card animation duration in seconds")
     parser.add_argument("--overlay-port", type=int)
     parser.add_argument("--no-overlay", action="store_true")
+    parser.add_argument("--mode", choices=("cash", "tournament"))
+    parser.add_argument("--players", type=int, choices=range(2, 7), metavar="2-6")
+    parser.add_argument("--seed", type=int, help="Deterministic deck seed")
+    parser.add_argument("--reduced-motion", action="store_true")
     parser.add_argument("--tts", action="store_true")
     parser.add_argument("--mute", action="store_true", help="Disable generated game sound cues")
+    parser.add_argument("--no-ambience", action="store_true")
     parser.add_argument("--audio-volume", type=float, help="Sound cue volume from 0.0 to 1.0")
     parser.add_argument("--windowed", action="store_true")
     continuous = parser.add_mutually_exclusive_group()
@@ -41,10 +46,20 @@ def build_settings(args):
         settings.overlay_port = args.overlay_port
     if args.no_overlay:
         settings.overlay_enabled = False
+    if args.mode:
+        settings.game_mode = args.mode
+    if args.players:
+        settings.table_size = args.players
+    if args.seed is not None:
+        settings.rng_seed = args.seed
+    if args.reduced_motion:
+        settings.reduced_motion = True
     if args.tts:
         settings.tts_enabled = True
     if args.mute:
         settings.audio_enabled = False
+    if args.no_ambience:
+        settings.ambience_enabled = False
     if args.audio_volume is not None:
         settings.audio_volume = max(0.0, min(1.0, args.audio_volume))
     if args.windowed:
@@ -57,13 +72,27 @@ def build_settings(args):
 
 
 def main(argv=None):
+    from gui import run_gui
+    from PyQt5.QtWidgets import QApplication
+
     settings = build_settings(parse_args(argv))
+    app = QApplication.instance() or QApplication(sys.argv)
     metrics = MetricsStore(settings.stats_path)
     game = PokerGame(
-        num_players=4,
+        num_players=settings.table_size,
+        starting_chips=settings.starting_chips,
         small_blind=settings.small_blind,
         big_blind=settings.big_blind,
         metrics_store=metrics,
+        mode=settings.game_mode,
+        profiles=settings.player_profiles[: settings.table_size],
+        rng_seed=settings.rng_seed,
+        hands_per_level=settings.hands_per_level,
+        tournament_levels=settings.tournament_levels,
+        history_path=settings.hand_history_path,
+        checkpoint_path=settings.checkpoint_path,
+        equity_samples=settings.equity_samples,
+        analysis_depth=settings.analysis_depth,
     )
     commentary = CommentaryService(
         enabled=settings.tts_enabled,
@@ -76,7 +105,18 @@ def main(argv=None):
         enabled=settings.audio_enabled,
         volume=settings.audio_volume,
         cache_dir=settings.audio_cache_path,
+        ambience_enabled=settings.ambience_enabled,
+        ambience_volume=settings.ambience_volume,
+        effects_volume=settings.effects_volume,
     )
+    commentary.on_speaking = audio.set_voice_active
+    game.audio_state = {
+        "enabled": audio.enabled,
+        "master": settings.audio_volume,
+        "ambience": settings.ambience_volume,
+        "effects": settings.effects_volume,
+        "voice": settings.voice_volume,
+    }
     game.subscribe(audio.handle_event)
     overlay = None
     if settings.overlay_enabled:
@@ -88,14 +128,18 @@ def main(argv=None):
             accent=settings.overlay_accent,
             font=settings.overlay_font,
             layout=settings.overlay_layout,
+            reduced_motion=settings.reduced_motion,
+            audio_enabled=settings.overlay_audio_enabled,
         ).start()
+        game.service_health["overlay"] = "online"
         print(f"Streaming overlay: {overlay.url}")
 
     try:
-        return run_gui(game, settings, audio_service=audio)
+        return run_gui(game, settings, audio_service=audio, app=app)
     finally:
         audio.close()
         commentary.close()
+        game.close()
         if overlay:
             overlay.close()
 

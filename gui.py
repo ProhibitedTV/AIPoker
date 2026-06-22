@@ -21,6 +21,7 @@ from PyQt5.QtWidgets import (
     QCheckBox,
     QComboBox,
     QFrame,
+    QGridLayout,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -28,6 +29,7 @@ from PyQt5.QtWidgets import (
     QMessageBox,
     QPushButton,
     QShortcut,
+    QSlider,
     QTableWidget,
     QTableWidgetItem,
     QTextEdit,
@@ -176,7 +178,7 @@ class PokerGUI(QMainWindow):
 
     def init_ui(self):
         self.setWindowTitle("AI Poker // Live Table")
-        self.setMinimumSize(1180, 760)
+        self.setMinimumSize(1280, 800)
         self.setStyleSheet(
             """
             QMainWindow, QWidget#root { background: #061812; color: #f4f1e8; font-family: "Segoe UI", Arial; }
@@ -229,12 +231,13 @@ class PokerGUI(QMainWindow):
         self.pot_label = self._metric_label("POT", "0")
         self.blinds_label = self._metric_label("BLINDS", "0 / 0")
         self.dealer_label = self._metric_label("DEALER", "-")
+        self.mode_label = self._metric_label("FORMAT", self.game.mode.upper())
         header.addWidget(self.run_status_label)
-        for widget in (self.hand_status_label, self.pot_label, self.blinds_label, self.dealer_label):
+        for widget in (self.hand_status_label, self.pot_label, self.blinds_label, self.dealer_label, self.mode_label):
             header.addWidget(widget, 1)
         main.addWidget(top_bar)
 
-        self.players_layout = QHBoxLayout()
+        self.players_layout = QGridLayout()
         self.players_layout.setSpacing(10)
         self.player_frames = []
         self.player_labels = []
@@ -276,7 +279,9 @@ class PokerGUI(QMainWindow):
             self.player_dealer_badges.append(dealer_badge)
             self.player_cards_layouts.append(cards)
             self.player_action_labels.append(action)
-            self.players_layout.addWidget(frame, 1)
+            columns = 3 if self.game.num_players > 4 else self.game.num_players
+            frame_index = len(self.player_frames) - 1
+            self.players_layout.addWidget(frame, frame_index // columns, frame_index % columns)
         main.addLayout(self.players_layout)
 
         board = QFrame()
@@ -296,6 +301,10 @@ class PokerGUI(QMainWindow):
         self.community_cards_layout = QHBoxLayout()
         self.community_cards_layout.setAlignment(Qt.AlignCenter)
         board_layout.addLayout(self.community_cards_layout)
+        self.pot_detail_label = QLabel("MAIN POT · Waiting for action")
+        self.pot_detail_label.setAlignment(Qt.AlignCenter)
+        self.pot_detail_label.setStyleSheet("color:#d7bd72;font-size:11px;font-weight:700;")
+        board_layout.addWidget(self.pot_detail_label)
         self.commentary_banner = QLabel("Table ready. Start the broadcast when Ollama is online.")
         self.commentary_banner.setObjectName("commentaryBanner")
         self.commentary_banner.setAlignment(Qt.AlignCenter)
@@ -331,8 +340,10 @@ class PokerGUI(QMainWindow):
 
         control_bar = QFrame()
         control_bar.setObjectName("controlBar")
-        controls = QHBoxLayout(control_bar)
-        controls.setContentsMargins(12, 9, 12, 9)
+        control_stack = QVBoxLayout(control_bar)
+        control_stack.setContentsMargins(12, 9, 12, 9)
+        control_stack.setSpacing(6)
+        controls = QHBoxLayout()
         self.start_button = QPushButton("Start")
         self.start_button.setObjectName("primaryButton")
         self.start_button.clicked.connect(self.start_game)
@@ -359,6 +370,10 @@ class PokerGUI(QMainWindow):
         self.sound_checkbox.toggled.connect(self.toggle_sound_cues)
         if not self.sound_checkbox.isEnabled():
             self.sound_checkbox.setToolTip("No supported local audio player was detected")
+        self.ambience_checkbox = QCheckBox("Ambience")
+        self.ambience_checkbox.setChecked(bool(self.audio_service and self.audio_service.ambience_enabled))
+        self.ambience_checkbox.setEnabled(bool(self.audio_service and self.audio_service.available))
+        self.ambience_checkbox.toggled.connect(self.toggle_ambience)
         self.fullscreen_button = QPushButton("Fullscreen")
         self.fullscreen_button.clicked.connect(self.toggle_fullscreen)
         self.reset_stats_button = QPushButton("Reset season stats")
@@ -373,10 +388,31 @@ class PokerGUI(QMainWindow):
         controls.addWidget(self.pace_combo)
         controls.addWidget(self.continuous_checkbox)
         controls.addWidget(self.sound_checkbox)
+        controls.addWidget(self.ambience_checkbox)
         controls.addStretch()
         controls.addWidget(shortcuts)
         controls.addWidget(self.fullscreen_button)
         controls.addWidget(self.reset_stats_button)
+        control_stack.addLayout(controls)
+
+        mixer = QHBoxLayout()
+        mixer.addWidget(QLabel("AUDIO MIX"))
+        self.master_slider = self._audio_slider(self.settings.audio_volume, "Master")
+        self.ambience_slider = self._audio_slider(self.settings.ambience_volume, "Ambience")
+        self.effects_slider = self._audio_slider(self.settings.effects_volume, "Effects")
+        for caption, slider in (
+            ("MASTER", self.master_slider),
+            ("AMBIENCE", self.ambience_slider),
+            ("EFFECTS", self.effects_slider),
+        ):
+            label = QLabel(caption)
+            label.setStyleSheet("color:#78968b;font-size:9px;font-weight:700;")
+            mixer.addWidget(label)
+            mixer.addWidget(slider)
+            slider.sliderReleased.connect(self.update_audio_mix)
+        mixer.addStretch()
+        mixer.addWidget(QLabel("Voice level and device routing are available in config.json"))
+        control_stack.addLayout(mixer)
         main.addWidget(control_bar)
         self.setCentralWidget(central)
 
@@ -392,6 +428,15 @@ class PokerGUI(QMainWindow):
         label.setMinimumWidth(92)
         label.setStyleSheet("background:#273f35;color:#aac0b7;border-radius:8px;padding:8px;font-weight:800;")
         return label
+
+    @staticmethod
+    def _audio_slider(value, tooltip):
+        slider = QSlider(Qt.Horizontal)
+        slider.setRange(0, 100)
+        slider.setValue(round(float(value) * 100))
+        slider.setFixedWidth(110)
+        slider.setToolTip(f"{tooltip} volume")
+        return slider
 
     @staticmethod
     def _metric_label(caption, value):
@@ -445,6 +490,18 @@ class PokerGUI(QMainWindow):
         if self.audio_service:
             self.audio_service.set_enabled(enabled)
 
+    def toggle_ambience(self, enabled):
+        if self.audio_service:
+            self.audio_service.set_ambience_enabled(enabled)
+
+    def update_audio_mix(self):
+        if self.audio_service:
+            self.audio_service.set_channel_volumes(
+                master=self.master_slider.value() / 100,
+                ambience=self.ambience_slider.value() / 100,
+                effects=self.effects_slider.value() / 100,
+            )
+
     def toggle_pause(self):
         if not self.running:
             return
@@ -495,7 +552,11 @@ class PokerGUI(QMainWindow):
         if showdown:
             if self.continuous_checkbox.isChecked():
                 self.current_stage = 0
-                delay = self.settings.between_hands_delay_ms
+                delay = (
+                    self.settings.between_tournaments_delay_ms
+                    if self.game.tournament_complete
+                    else self.settings.between_hands_delay_ms
+                )
             else:
                 self.running = False
                 self.start_button.setText("Start next hand")
@@ -538,20 +599,33 @@ class PokerGUI(QMainWindow):
             self.update_leaderboard()
 
     def update_visuals(self):
+        snapshot = self.game.state_snapshot()
         self.update_community_cards(self.game.community_cards)
         dealer = "-" if self.game.dealer_position < 0 else self.game.players[self.game.dealer_position].name
         self._set_metric(self.hand_status_label, "HAND", f"{self.game.hand_number} · {self.game.stage}")
         self._set_metric(self.pot_label, "POT", f"{self.game.pot:,}")
-        self._set_metric(self.blinds_label, "BLINDS", f"{self.game.small_blind} / {self.game.big_blind}")
+        ante = f" · A{self.game.ante}" if self.game.ante else ""
+        self._set_metric(self.blinds_label, "BLINDS", f"{self.game.small_blind} / {self.game.big_blind}{ante}")
         self._set_metric(self.dealer_label, "DEALER", dealer.replace("AI Player ", "P"))
+        tournament = snapshot.get("tournament")
+        format_value = f"SNG · L{tournament['level']}" if tournament else "CASH · FIXED"
+        self._set_metric(self.mode_label, "FORMAT", format_value)
         self.stage_label.setText(self.game.stage.upper())
+        pots = snapshot.get("pots") or []
+        self.pot_detail_label.setText(
+            "  ·  ".join(f"{pot['kind'].upper()} {pot['amount']:,}" for pot in pots)
+            or "MAIN POT · Waiting for action"
+        )
 
         if self.paused:
             status_text, status_style = "Ⅱ  PAUSED", "background:#5b4720;color:#f5d77e;"
         elif self._stage_in_progress:
             status_text, status_style = "●  THINKING", "background:#153f5a;color:#8fd2ff;"
         elif self.running:
-            status_text, status_style = "●  LIVE", "background:#174732;color:#77e0a1;"
+            if self.game.service_health.get("ollama") in {"fallback", "circuit-open"}:
+                status_text, status_style = "●  LIVE · FALLBACK", "background:#5b4720;color:#f5d77e;"
+            else:
+                status_text, status_style = "●  LIVE", "background:#174732;color:#77e0a1;"
         else:
             status_text, status_style = "○  STANDBY", "background:#273f35;color:#aac0b7;"
         self.run_status_label.setText(status_text)
@@ -565,29 +639,38 @@ class PokerGUI(QMainWindow):
         self.commentary_banner.setText(latest_commentary[0])
 
         for index, player in enumerate(self.game.players):
-            if not player.is_active:
+            player_state = snapshot["players"][index]
+            profile_color = player.profile.color
+            if player.eliminated or player.folded:
                 frame_style = "background:#101a17;border:1px solid #293a34;border-radius:12px;"
                 name_style = "color:#71827b;font-size:16px;font-weight:700;"
+            elif player.all_in:
+                frame_style = "background:#321e1b;border:2px solid #d45f52;border-radius:12px;"
+                name_style = "color:#ffd0c8;font-size:16px;font-weight:800;"
             elif index == self.game.next_to_act:
                 frame_style = "background:#18392d;border:2px solid #e0b84f;border-radius:12px;"
                 name_style = "color:#f7d875;font-size:16px;font-weight:800;"
             else:
-                frame_style = "background:#0c211a;border:1px solid #285140;border-radius:12px;"
+                frame_style = f"background:#0c211a;border:1px solid {profile_color};border-radius:12px;"
                 name_style = "color:#ffffff;font-size:16px;font-weight:700;"
             self.player_frames[index].setStyleSheet(f"QFrame#playerPanel {{{frame_style}}}")
             self.player_labels[index].setStyleSheet(name_style)
             self.player_labels[index].setText(player.name)
+            equity = "…" if player_state["equity"] is None else f"{player_state['equity']:.1f}%"
+            stats = player_state["stats"]
             self.player_stats_labels[index].setText(
-                f"{player.chips:,} chips  ·  {player.wins}W {player.ties}T  ·  {player.get_win_percentage():.1f}%"
+                f"{player.chips:,} · EQ {equity} · VPIP {stats['vpip']:.0f} · PFR {stats['pfr']:.0f} · {player_state['hand_label'] or 'Waiting'}"
             )
-            self.player_dealer_badges[index].setVisible(index == self.game.dealer_position)
-            self.update_player_cards(index, player.hand if player.is_active else [])
+            role = "D" if index == self.game.dealer_position else "SB" if index == self.game.small_blind_position else "BB" if index == self.game.big_blind_position else ""
+            self.player_dealer_badges[index].setText(role)
+            self.player_dealer_badges[index].setVisible(bool(role))
+            self.update_player_cards(index, player.hand)
             self.player_action_labels[index].setText(player.last_action)
-            if not player.is_active:
+            if player.eliminated or player.folded:
                 action_style = "background:#252e2a;color:#77847f;"
             elif index == self.game.next_to_act:
                 action_style = "background:#d8ad43;color:#162119;"
-            elif player.last_action.startswith(("Bet", "Raised")):
+            elif player.last_action.startswith(("Bet", "Raised", "All-in")):
                 action_style = "background:#63352c;color:#ffd0bf;"
             else:
                 action_style = "background:#17382d;color:#d9e7e1;"
@@ -624,9 +707,13 @@ class PokerGUI(QMainWindow):
         self._shown_player_hands[index] = signature
 
     def _add_animated_card(self, layout, card):
-        label = AnimatedCardLabel(self.get_card_image(card), self.settings.animation_duration_ms)
+        duration = 0 if self.settings.reduced_motion else self.settings.animation_duration_ms
+        label = AnimatedCardLabel(self.get_card_image(card), duration)
         layout.addWidget(label)
-        QTimer.singleShot(0, label.animate_in)
+        if duration:
+            QTimer.singleShot(0, label.animate_in)
+        else:
+            label.set_flip_progress(1.0)
 
     @staticmethod
     def _clear_layout(layout):
@@ -685,8 +772,8 @@ class PokerGUI(QMainWindow):
         self.chip_history_chart.update()
 
 
-def run_gui(game, settings, audio_service=None):
-    app = QApplication(sys.argv)
+def run_gui(game, settings, audio_service=None, app=None):
+    app = app or QApplication.instance() or QApplication(sys.argv)
     gui = PokerGUI(game, settings, audio_service=audio_service)
     if settings.fullscreen:
         gui.showFullScreen()

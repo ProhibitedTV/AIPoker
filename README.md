@@ -1,140 +1,89 @@
 # AI Poker
 
-AI Poker is a local-first Texas Hold'em broadcast engine. Ollama models make every player decision on the host machine while the game runs continuously, publishes an OBS-ready spectator overlay, and builds persistent player statistics across sessions.
+AI Poker is a local-first, always-on No-Limit Texas Hold'em broadcast. Local [Ollama](https://ollama.com/) models play a rules-checked cash game or sit-and-go while a Qt control room and 1080p OBS overlay expose every card, pot, decision, equity swing, and season storyline to viewers.
 
-## Project goal
+The engine is designed to be auditable and recoverable for 24/7 operation. It enforces legal actions independently of model output; an LLM can make a poor strategic decision, but it cannot check while facing a bet, create chips, see another player's hole cards, or award itself the wrong pot.
 
-The project is designed to become a genuinely watchable 24/7 AI poker stream, not merely a poker simulation that happens to run in a window. Work on the project should reinforce four priorities:
+## Highlights
 
-1. **Local AI:** Player decisions run through locally hosted Ollama models without requiring a cloud inference service.
-2. **Unattended reliability:** Games continue automatically, recover playable tables when players run out of chips, and preserve season data across restarts.
-3. **Human-readable drama:** Pacing, animations, commentary, actions, win rates, and clear table state should make each hand understandable to a casual viewer.
-4. **Long-running stories:** Wins, losses, streaks, chip movement, and leaderboards should give viewers players and seasons worth following over time.
+- Complete street-based No-Limit Hold'em betting with calls, minimum raises, short all-ins, reopening rules, uncalled returns, and automatic all-in runouts
+- Correct heads-up and multiway action order, burn cards, best-five evaluation, main/side pots, split pots, and odd-chip awards
+- Four-player named local cast by default—Atlas, Vega, Nova, and Echo—with configurable models, personas, colors, voices, and temperatures
+- Cash mode with fixed stakes and zero-stack reloads, plus escalating hand-count sit-and-go tournaments with big-blind antes and automatic restarts
+- Spectator-visible hole cards and live equity, while each Ollama prompt receives only that player's private cards and public table information
+- Persistent schema-v2 statistics: VPIP, PFR, three-bets, aggression, showdown results, all-ins, tournament finishes, notable hands, and chip history
+- Atomic hand-boundary checkpoints, rotating replayable JSONL hand histories, bounded queues, and legal fallback play during Ollama outages
+- 1920×1080 OBS scene, compact overlay, SSE event feed, layered original audio, optional TTS, reduced motion, and offline preview tools
 
-## Features
+## Install and run
 
-- Four Ollama-driven AI players with validated fold/check/bet/raise responses
-- Non-blocking Qt deal and card-flip transitions
-- Configurable stage, animation, and between-hand timing with live pace presets
-- Continuous play plus pause/resume controls (`Space` toggles, `R` resumes)
-- Browser-source overlay showing pot, blinds, board, dealer, next player, actions, chips, and win rates
-- Live JSON state endpoint for custom widgets
-- Text commentary feed and optional background text-to-speech
-- Non-blocking generated sound cues for cards, chips, board reveals, wins, and recovery alerts
-- Persistent hands, wins, ties, win rates, chip results, streaks, and chip history
-- In-app leaderboard with an explicitly confirmed season reset
-
-## Requirements
-
-- Python 3.9+
-- [Ollama](https://ollama.com/) running locally
+Use Python 3.10+ and Ollama. The GUI requirements are pinned in `requirements.txt`; development tools are in `requirements-dev.txt`.
 
 ```bash
 python -m venv .venv
 # Windows: .venv\Scripts\activate
 # macOS/Linux: source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-Start Ollama and make sure at least one local model is installed:
-
-```bash
+pip install -r requirements.txt -r requirements-dev.txt
 ollama serve
-ollama list
+ollama pull qwen2.5:7b
+python main.py
 ```
 
-The game automatically prefers installed model names containing `llama3`, `command-r`, or `qwen`. If none match, it requests `llama3:latest`; install that model or adjust model selection in `ollama_integration.py` before leaving the table unattended.
-
-## Broadcast quick start
-
-Create a local configuration, then start the table:
+Useful launch overrides:
 
 ```bash
-# Windows
-Copy-Item config.example.json config.json
-
-# macOS/Linux
-cp config.example.json config.json
-
-python main.py --continuous-play
+python main.py --mode tournament --players 4 --continuous-play
+python main.py --mode cash --players 6 --windowed --tts
+python main.py --single-hand --seed 42 --reduced-motion --no-ambience
 ```
 
-For a narrated stream, install the optional TTS dependency and enable it:
+Copy `config.example.json` to `config.json` to select per-seat Ollama models, game mode, stacks, tournament levels, pacing, analysis depth, audio channels, persistence paths, and overlay styling. Explicit CLI options override the file. An `auto` model is resolved from installed Ollama models at runtime; if Ollama is unavailable, bounded fallback policy keeps the stream moving and the overlay reports fallback health.
+
+## OBS and audio
+
+The full browser source is `http://127.0.0.1:8765/overlay`. Configure OBS at **1920×1080** with the same frame rate as the stream. Use `?compact=1` for the compact panel. The server binds only to localhost unless configured otherwise.
+
+- `/state` publishes backward-compatible state plus the version-2 player, pot, tournament, analysis, audio, and health schema.
+- `/events` is a reconnectable server-sent event stream with monotonic IDs for animation and custom integrations.
+- `/health` provides a minimal service probe.
+
+Desktop effects, ambience, and TTS should be captured through OBS Application Audio Capture. Browser-source cues are independently available through `overlay_audio_enabled`; leave that disabled when desktop audio is already captured to avoid doubling. Master, ambience, effects, and voice levels are separate, and nonessential sound is ducked around speech.
+
+Preview the real overlay without Ollama:
 
 ```bash
-pip install pyttsx3
-python main.py --continuous-play --tts
+python scripts/preview_overlay.py
+python scripts/preview_gui.py ui-preview.png
 ```
 
-By default the OBS/browser overlay is available at `http://127.0.0.1:8765/overlay` and machine-readable state at `http://127.0.0.1:8765/state`. Add the overlay URL to OBS as a **1920×1080 Browser Source**. The default layout fills a full HD canvas; append `?compact=1` for a compact panel intended to sit over another video source. The server binds only to localhost unless configured otherwise.
+## Rules and house policy
 
-Sound cues are generated locally on first launch and stored under `data/audio_cache`. Windows uses its built-in WAV playback. macOS uses `afplay`; Linux uses `paplay` or `aplay` when available. The desktop **Sound cues** control can mute effects without interrupting play. Capture desktop/application audio in OBS to include cues and optional TTS in the stream mix.
+Tournament behavior follows the latest inspected published [Poker TDA rules](https://www.pokertda.com/poker-tda-rules/), including heads-up blind/action order, short all-in reopening, dead-button progression, big-blind ante handling, side-pot eligibility, and odd chips clockwise from the button.
 
-Before a long broadcast:
+Cash mode is a no-rake entertainment table: 10/20 default blinds, 2,000-chip buy-in, fixed stakes, and automatic reload only after a seat reaches zero. Sit-and-go defaults are four 2,000-chip stacks, eight hands per level, a big-blind ante beginning at 40/80, no rebuys, a 15-second winner sequence, and automatic restart. Straddles, insurance, run-it-twice, real-money payouts, and non-Hold'em variants are intentionally out of scope.
 
-- Confirm every Ollama model responds locally.
-- Add the browser overlay to OBS at 1920×1080 and verify its safe area, theme, and compact/full mode.
-- Tune stage and between-hand delays for viewers rather than maximum throughput.
-- Confirm `data/leaderboard.json` is writable and backed up if the season matters.
-- Disable host sleep and run the process under an appropriate supervisor for the operating system.
-- Test pause/resume and audio levels before going live.
+## Verification
 
-The desktop control bar provides live **Cinematic**, **Broadcast**, **Quick**, and **Turbo** pacing presets. `Space` toggles pause, `R` resumes, and `F11` toggles fullscreen without restarting the table.
-
-Useful command-line controls:
+The normal suite does not require Ollama. GUI tests use Qt's offscreen platform.
 
 ```bash
-python main.py --stage-delay 3 --hand-delay 8 --animation-duration 0.8
-python main.py --single-hand --windowed --no-overlay
-python main.py --continuous-play --tts --overlay-port 9000
-python main.py --audio-volume 0.25  # or --mute
-python main.py --config my-stream.json
+pytest -m "not slow"
+pytest -m slow tests/test_hand_evaluator_exhaustive.py
+python scripts/soak_test.py --hands 10000 --players 6
+python scripts/soak_test.py --hands 2000 --players 4 --mode tournament
 ```
 
-Copy `config.example.json` to `config.json` to customize colors, fonts, pacing, blinds, overlay binding, sound volume, TTS voice/rate/volume, and the leaderboard path. CLI values override the configuration file.
+The release gate covers legal-action tables, heads-up transitions, minimum raises, cumulative short all-ins, uncalled excess, folded dead money, independent side-pot winners, split/odd chips, burn/deck invariants, prompt privacy, malformed model output, metrics migration, checkpoints, SSE replay, 1080p/compact layouts, and a deterministic 10,000-hand chip-conservation soak. The slow evaluator proof checks all 2,598,960 five-card combinations against canonical category frequencies.
 
-If Ollama temporarily fails to answer, a player safely falls back to folding after the request timeout. Set the `OLLAMA_TIMEOUT_SECONDS` environment variable to tune that timeout. The table automatically re-seats all players when fewer than two have chips, allowing continuous play without operator intervention.
+## Main components
 
-## Keeping the stream engaging
+- `game.py` — deterministic rules state machine, modes, pots, events, checkpoints, and public state
+- `player.py` — stable profiles and seat/contribution state
+- `ollama_integration.py` — cached model discovery, strict private JSON decisions, validation, and fallback
+- `analysis.py` — bounded asynchronous spectator equity
+- `metrics.py` — atomic schema-v2 season and tournament records
+- `gui.py` — non-blocking Qt broadcast control room
+- `overlay_server.py` — OBS page, state API, SSE events, and health probe
+- `audio.py` / `commentary.py` — generated effects, ambience, ducking, and optional speech
 
-The bundled interface exposes the information a viewer needs to follow a hand: current stage, pot, blinds, community cards, dealer, next player, chip stacks, actions, commentary, and running win percentages. The persistent leaderboard and chip-history chart turn isolated hands into an ongoing season.
-
-When extending the project, favor features that improve spectator comprehension or create recurring narratives. Examples include distinct player identities and model personalities, richer hand commentary, tournament milestones, rivalries, notable-hand replays, and broadcast alerts for streaks or major chip swings. Any addition intended for 24/7 use should remain non-blocking, bounded in resource use, and safe to recover after a restart.
-
-## Persistent leaderboard
-
-Season statistics are written atomically to `data/leaderboard.json` after each hand. The file includes aggregate player records and the latest 1,000 chip-distribution snapshots. Use **Reset season stats** in the GUI to start a fresh season.
-
-The `/state` response includes the same data under `leaderboard`, so custom overlays can build charts without reading local files.
-
-## Development
-
-The test suite does not require Ollama or a display:
-
-```bash
-pip install -r requirements-dev.txt
-pytest -q
-```
-
-GitHub Actions runs the suite on Python 3.10 and 3.12 for every push and pull request targeting `main`.
-
-Main modules:
-
-- `game.py` - game lifecycle, events, pot accounting, serializable state
-- `gui.py` - spectator UI, controls, animations, leaderboard
-- `overlay_server.py` - OBS page and JSON endpoint
-- `metrics.py` - durable season metrics
-- `commentary.py` - queued optional TTS
-- `audio.py` - generated, queued event sound cues
-- `settings.py` - JSON configuration model
-
-For deterministic UI review without Ollama, the repository includes preview helpers:
-
-```bash
-python -m scripts.preview_overlay
-python -m scripts.preview_gui ui-preview.png
-```
-
-## License
-
-MIT
+Season data, checkpoints, hand histories, and generated audio are written beneath `data/` by default. Resetting season statistics does not delete replay histories or checkpoints.
