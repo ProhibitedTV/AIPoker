@@ -21,6 +21,7 @@ from PyQt5.QtWidgets import (
     QCheckBox,
     QComboBox,
     QFrame,
+    QGraphicsOpacityEffect,
     QGridLayout,
     QHBoxLayout,
     QHeaderView,
@@ -143,10 +144,9 @@ class ChipHistoryChart(QWidget):
 
 class PokerGUI(QMainWindow):
     PACE_PRESETS = (
-        ("Cinematic", 8000, 10000),
-        ("Broadcast", 5000, 6000),
-        ("Quick", 2500, 3500),
-        ("Turbo", 1000, 1800),
+        ("Cinematic", 1800, 7500, 10000),
+        ("Broadcast", 1250, 4500, 6500),
+        ("Brisk", 800, 2800, 4000),
     )
 
     def __init__(self, game, settings, audio_service=None):
@@ -162,6 +162,8 @@ class PokerGUI(QMainWindow):
         self._stage_before_pause = "Waiting"
         self._has_started_once = False
         self._shown_player_hands = [None] * game.num_players
+        self._shown_wagers = [0] * game.num_players
+        self._wager_animations = {}
         self._shown_community = None
         self._stage_in_progress = False
         self._stage_worker = None
@@ -244,6 +246,8 @@ class PokerGUI(QMainWindow):
         self.player_stats_labels = []
         self.player_dealer_badges = []
         self.player_cards_layouts = []
+        self.player_wager_labels = []
+        self.player_wager_effects = []
         self.player_action_labels = []
         for player in self.game.players:
             frame = QFrame()
@@ -269,6 +273,16 @@ class PokerGUI(QMainWindow):
             cards = QHBoxLayout()
             cards.setAlignment(Qt.AlignCenter)
             column.addLayout(cards)
+            wager = QLabel("● ● ●  0")
+            wager.setAlignment(Qt.AlignCenter)
+            wager.setStyleSheet(
+                f"color:{player.profile.color};background:#071914;border-radius:10px;"
+                "padding:3px 8px;font-size:11px;font-weight:800;"
+            )
+            wager_effect = QGraphicsOpacityEffect(wager)
+            wager.setGraphicsEffect(wager_effect)
+            wager.hide()
+            column.addWidget(wager)
             action = QLabel("Waiting")
             action.setObjectName("actionBadge")
             action.setAlignment(Qt.AlignCenter)
@@ -278,6 +292,8 @@ class PokerGUI(QMainWindow):
             self.player_stats_labels.append(stats)
             self.player_dealer_badges.append(dealer_badge)
             self.player_cards_layouts.append(cards)
+            self.player_wager_labels.append(wager)
+            self.player_wager_effects.append(wager_effect)
             self.player_action_labels.append(action)
             columns = 3 if self.game.num_players > 4 else self.game.num_players
             frame_index = len(self.player_frames) - 1
@@ -353,15 +369,15 @@ class PokerGUI(QMainWindow):
         pace_label = QLabel("PACE")
         pace_label.setObjectName("eyebrow")
         self.pace_combo = QComboBox()
-        for name, stage_delay, hand_delay in self.PACE_PRESETS:
-            self.pace_combo.addItem(name, (stage_delay, hand_delay))
+        for name, action_delay, stage_delay, hand_delay in self.PACE_PRESETS:
+            self.pace_combo.addItem(name, (action_delay, stage_delay, hand_delay))
         closest = min(
             range(len(self.PACE_PRESETS)),
-            key=lambda index: abs(self.PACE_PRESETS[index][1] - self.settings.stage_delay_ms),
+            key=lambda index: abs(self.PACE_PRESETS[index][2] - self.settings.stage_delay_ms),
         )
         self.pace_combo.setCurrentIndex(closest)
         self.pace_combo.currentIndexChanged.connect(self.apply_pace_preset)
-        self.pace_combo.setToolTip("Change the delay between streets and hands without restarting")
+        self.pace_combo.setToolTip("Change readable action, street, and hand timing without restarting")
         self.continuous_checkbox = QCheckBox("Continuous play")
         self.continuous_checkbox.setChecked(self.settings.continuous_play)
         self.sound_checkbox = QCheckBox("Sound cues")
@@ -471,11 +487,14 @@ class PokerGUI(QMainWindow):
             self.timer.start(0)
 
     def apply_pace_preset(self, index):
-        stage_delay, hand_delay = self.pace_combo.itemData(index)
+        action_delay, stage_delay, hand_delay = self.pace_combo.itemData(index)
+        self.settings.action_delay_ms = action_delay
         self.settings.stage_delay_ms = stage_delay
         self.settings.between_hands_delay_ms = hand_delay
+        self.game.action_delay_ms = action_delay
         self.pace_combo.setToolTip(
-            f"{stage_delay / 1000:g}s between streets · {hand_delay / 1000:g}s between hands"
+            f"{action_delay / 1000:g}s per action · {stage_delay / 1000:g}s between streets · "
+            f"{hand_delay / 1000:g}s between hands"
         )
 
     def toggle_fullscreen(self):
@@ -613,8 +632,8 @@ class PokerGUI(QMainWindow):
         self.stage_label.setText(self.game.stage.upper())
         pots = snapshot.get("pots") or []
         self.pot_detail_label.setText(
-            "  ·  ".join(f"{pot['kind'].upper()} {pot['amount']:,}" for pot in pots)
-            or "MAIN POT · Waiting for action"
+            "  ·  ".join(f"◉ {pot['kind'].upper()} {pot['amount']:,}" for pot in pots)
+            or "◉ MAIN POT · Waiting for action"
         )
 
         if self.paused:
@@ -665,6 +684,7 @@ class PokerGUI(QMainWindow):
             self.player_dealer_badges[index].setText(role)
             self.player_dealer_badges[index].setVisible(bool(role))
             self.update_player_cards(index, player.hand)
+            self.update_player_wager(index, player.current_bet)
             self.player_action_labels[index].setText(player.last_action)
             if player.eliminated or player.folded:
                 action_style = "background:#252e2a;color:#77847f;"
@@ -672,6 +692,8 @@ class PokerGUI(QMainWindow):
                 action_style = "background:#d8ad43;color:#162119;"
             elif player.last_action.startswith(("Bet", "Raised", "All-in")):
                 action_style = "background:#63352c;color:#ffd0bf;"
+            elif player.last_action.startswith("Won"):
+                action_style = "background:#d8ad43;color:#162119;"
             else:
                 action_style = "background:#17382d;color:#d9e7e1;"
             self.player_action_labels[index].setStyleSheet(
@@ -705,6 +727,44 @@ class PokerGUI(QMainWindow):
         for card in hand:
             self._add_animated_card(layout, card)
         self._shown_player_hands[index] = signature
+
+    def update_player_wager(self, index, amount):
+        amount = int(amount)
+        label = self.player_wager_labels[index]
+        if amount <= 0:
+            self._discard_wager_animation(index)
+            label.hide()
+            self.player_wager_effects[index].setOpacity(1.0)
+            self._shown_wagers[index] = 0
+            return
+        label.setText(f"● ● ●  {amount:,}")
+        label.show()
+        if amount != self._shown_wagers[index] and not self.settings.reduced_motion:
+            self._discard_wager_animation(index)
+            effect = self.player_wager_effects[index]
+            animation = QPropertyAnimation(effect, b"opacity", self)
+            animation.setDuration(480)
+            animation.setStartValue(0.0)
+            animation.setEndValue(1.0)
+            self._wager_animations[index] = animation
+            animation.finished.connect(
+                lambda seat=index, current=animation: self._finish_wager_animation(seat, current)
+            )
+            animation.start()
+        else:
+            self.player_wager_effects[index].setOpacity(1.0)
+        self._shown_wagers[index] = amount
+
+    def _discard_wager_animation(self, index):
+        animation = self._wager_animations.pop(index, None)
+        if animation is not None:
+            animation.stop()
+            animation.deleteLater()
+
+    def _finish_wager_animation(self, index, animation):
+        if self._wager_animations.get(index) is animation:
+            self._wager_animations.pop(index, None)
+        animation.deleteLater()
 
     def _add_animated_card(self, layout, card):
         duration = 0 if self.settings.reduced_motion else self.settings.animation_duration_ms

@@ -74,8 +74,16 @@ class StreamingFeatureTests(unittest.TestCase):
             self.assertEqual(len(state["players"]), 2)
             self.assertIn("AI Poker Overlay", html)
             self.assertIn('aria-live="polite"', html)
-            self.assertIn('class="meter"', html)
+            self.assertIn('class="equity-meter"', html)
             self.assertIn("RECONNECTING", html)
+            self.assertIn("@keyframes cardFlip", html)
+            self.assertIn("class=\"wager", html)
+            self.assertIn("highlightedWinners", html)
+            self.assertIn("CHANCE TO WIN", html)
+            self.assertIn("DECISION TIME", html)
+            self.assertIn("PRIVATE CARDS", html)
+            self.assertIn('class="winner-banner"', html)
+            self.assertIn("reduced *", html)
         finally:
             server.close()
 

@@ -31,10 +31,12 @@ def default_tournament_levels():
 
 @dataclass
 class AppSettings:
-    stage_delay_ms: int = 3500
-    between_hands_delay_ms: int = 5000
+    action_delay_ms: int = 1250
+    deal_delay_ms: int = 320
+    stage_delay_ms: int = 4500
+    between_hands_delay_ms: int = 6500
     between_tournaments_delay_ms: int = 15000
-    animation_duration_ms: int = 550
+    animation_duration_ms: int = 720
     continuous_play: bool = True
     start_paused: bool = False
     fullscreen: bool = True

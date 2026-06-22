@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import random
+import time
 from threading import Condition, RLock
 
 from analysis import EquityCalculator
@@ -60,6 +61,9 @@ class PokerGame:
         auto_restore=True,
         equity_samples=1600,
         analysis_depth="full",
+        action_delay_ms=0,
+        deal_delay_ms=0,
+        sleep_provider=None,
     ):
         if not 2 <= int(num_players) <= 6:
             raise ValueError("table size must be between 2 and 6")
@@ -138,6 +142,9 @@ class PokerGame:
         self._event_sequence = 0
         self._equity = EquityCalculator(samples=equity_samples)
         self.analysis_depth = analysis_depth if analysis_depth in {"full", "essential", "off"} else "full"
+        self.action_delay_ms = max(0, int(action_delay_ms))
+        self.deal_delay_ms = max(0, int(deal_delay_ms))
+        self._sleep = sleep_provider or time.sleep
         self.service_health = {"ollama": "unknown", "overlay": "unknown"}
         self.audio_state = {"enabled": True, "master": 0.35}
 
@@ -328,6 +335,7 @@ class PokerGame:
                 seat=seat,
                 cards=[self.card_to_dict(card) for card in player.hand],
             )
+            self._presentation_pause(self.deal_delay_ms)
 
     def _post_antes_and_blinds(self):
         funded = self._funded_seats()
@@ -365,6 +373,7 @@ class PokerGame:
             amount=paid,
             target=player.current_bet,
         )
+        self._presentation_pause(self.deal_delay_ms)
 
     def play_flop(self):
         if not self.hand_in_progress or self._only_one_remaining():
@@ -503,6 +512,7 @@ class PokerGame:
             self.last_full_bet_level = last_full_bet_level
             player.acted_since_full_raise = True
             self._record_action(player, result, table_talk)
+            self._presentation_pause(self.action_delay_ms)
             cursor = (seat + 1) % self.num_players
             actions += 1
             if actions > self.num_players * 30:
@@ -736,6 +746,11 @@ class PokerGame:
     def _only_one_remaining(self):
         return sum(player.is_active and not player.folded for player in self.players) <= 1
 
+    def _presentation_pause(self, milliseconds):
+        """Pace broadcast events off the UI thread without affecting tests/soaks by default."""
+        if milliseconds > 0:
+            self._sleep(milliseconds / 1000)
+
     def _first_candidate_from(self, start, candidates):
         for offset in range(self.num_players):
             seat = (start + offset) % self.num_players
@@ -892,6 +907,7 @@ class PokerGame:
             self.pot = 0
             winner_players = [player for player in self.players if player.id in winner_ids]
             for player in winner_players:
+                player.last_action = f"Won {payouts[player.id]}"
                 if len(winner_players) == 1:
                     player.wins += 1
                 else:

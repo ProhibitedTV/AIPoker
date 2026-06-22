@@ -83,8 +83,11 @@ def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Serve the continuously playing casino overlay")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
-    parser.add_argument("--street-delay", type=float, default=2.2)
-    parser.add_argument("--hand-delay", type=float, default=5.0)
+    parser.add_argument("--players", type=int, choices=range(2, 7), default=4)
+    parser.add_argument("--street-delay", type=float, default=3.8)
+    parser.add_argument("--hand-delay", type=float, default=7.5)
+    parser.add_argument("--action-delay", type=float, default=1.15)
+    parser.add_argument("--deal-delay", type=float, default=0.28)
     parser.add_argument("--seed", type=int, default=20260622)
     parser.add_argument("--audio", action="store_true", help="Enable browser-source cue audio")
     parser.add_argument("--reduced-motion", action="store_true")
@@ -97,14 +100,16 @@ def main(argv=None):
     metrics_directory = tempfile.TemporaryDirectory(prefix="ai-poker-preview-")
     metrics = MetricsStore(Path(metrics_directory.name) / "leaderboard.json")
     game = PokerGame(
-        4,
+        args.players,
         starting_chips=2000,
         mode="tournament",
-        profiles=default_profiles()[:4],
+        profiles=default_profiles()[:args.players],
         decision_provider=preview_decision(rng),
         metrics_store=metrics,
         rng_seed=args.seed,
         auto_restore=False,
+        action_delay_ms=round(max(0.0, args.action_delay) * 1000),
+        deal_delay_ms=round(max(0.0, args.deal_delay) * 1000),
     )
     game.service_health["ollama"] = "preview"
     server = OverlayServer(
