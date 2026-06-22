@@ -24,7 +24,9 @@ class StreamingFeatureTests(unittest.TestCase):
             starting_total = sum(player.chips for player in game.players)
 
             game.play_pre_flop()
-            self.assertEqual(game.pot, 30)
+            # A legacy provider saying "check" while facing a blind is safely
+            # translated to a call; impossible free checks are never accepted.
+            self.assertEqual(game.pot, 80)
             game.play_flop()
             game.play_turn()
             game.play_river()
@@ -68,11 +70,25 @@ class StreamingFeatureTests(unittest.TestCase):
             with urlopen(server.url, timeout=2) as response:
                 html = response.read().decode("utf-8")
             self.assertEqual(state["pot"], 0)
+            self.assertEqual(state["schema_version"], 2)
             self.assertEqual(len(state["players"]), 2)
             self.assertIn("AI Poker Overlay", html)
             self.assertIn('aria-live="polite"', html)
             self.assertIn('class="meter"', html)
             self.assertIn("RECONNECTING", html)
+        finally:
+            server.close()
+
+    def test_overlay_event_stream_replays_from_sequence(self):
+        game = PokerGame(2, decision_provider=lambda *_: "check")
+        event = game._emit("diagnostic", "event stream ready")
+        server = OverlayServer(game, port=0).start()
+        try:
+            with urlopen(f"http://127.0.0.1:{server.port}/events?since={event['id'] - 1}", timeout=2) as response:
+                first = response.readline().decode("utf-8")
+                second = response.readline().decode("utf-8")
+            self.assertEqual(first.strip(), f"id: {event['id']}")
+            self.assertIn('"type":"diagnostic"', second)
         finally:
             server.close()
 

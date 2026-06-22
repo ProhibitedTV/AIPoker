@@ -1,18 +1,19 @@
 """Non-blocking optional text-to-speech narration."""
 
-from queue import Empty, Queue
+from queue import Empty, Full, Queue
 from threading import Event, Thread
 
 
 class CommentaryService:
-    SPOKEN_EVENTS = {"action", "community", "winner"}
+    SPOKEN_EVENTS = {"community", "winner", "table_talk", "tournament_winner", "elimination"}
 
-    def __init__(self, enabled=False, volume=0.9, rate=175, voice=""):
+    def __init__(self, enabled=False, volume=0.9, rate=175, voice="", on_speaking=None):
         self.enabled = enabled
         self.volume = volume
         self.rate = rate
         self.voice = voice
-        self._queue = Queue()
+        self._queue = Queue(maxsize=20)
+        self.on_speaking = on_speaking
         self._stop = Event()
         self._thread = None
         if enabled:
@@ -21,7 +22,14 @@ class CommentaryService:
 
     def handle_event(self, event):
         if self.enabled and event.get("type") in self.SPOKEN_EVENTS:
-            self._queue.put(event.get("message", ""))
+            try:
+                self._queue.put_nowait(event.get("message", ""))
+            except Full:
+                try:
+                    self._queue.get_nowait()
+                    self._queue.put_nowait(event.get("message", ""))
+                except (Empty, Full):
+                    pass
 
     def _run(self):
         try:
@@ -45,8 +53,14 @@ class CommentaryService:
             except Empty:
                 continue
             if text:
-                engine.say(text)
-                engine.runAndWait()
+                if self.on_speaking:
+                    self.on_speaking(True)
+                try:
+                    engine.say(text)
+                    engine.runAndWait()
+                finally:
+                    if self.on_speaking:
+                        self.on_speaking(False)
 
     def close(self):
         self._stop.set()
