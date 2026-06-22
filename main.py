@@ -21,6 +21,7 @@ def parse_args(argv=None):
     parser.add_argument("--animation-duration", type=float, help="Card animation duration in seconds")
     parser.add_argument("--overlay-port", type=int)
     parser.add_argument("--no-overlay", action="store_true")
+    parser.add_argument("--no-simulation-disclaimer", action="store_true")
     parser.add_argument("--mode", choices=("cash", "tournament"))
     parser.add_argument("--players", type=int, choices=range(2, 7), metavar="2-6")
     parser.add_argument("--seed", type=int, help="Deterministic deck seed")
@@ -52,6 +53,8 @@ def build_settings(args):
         settings.overlay_port = args.overlay_port
     if args.no_overlay:
         settings.overlay_enabled = False
+    if args.no_simulation_disclaimer:
+        settings.overlay_disclaimer_enabled = False
     if args.mode:
         settings.game_mode = args.mode
     if args.players:
@@ -138,6 +141,7 @@ def main(argv=None):
             layout=settings.overlay_layout,
             reduced_motion=settings.reduced_motion,
             audio_enabled=settings.overlay_audio_enabled,
+            disclaimer_enabled=settings.overlay_disclaimer_enabled,
         ).start()
         game.service_health["overlay"] = "online"
         print(f"Streaming overlay: {overlay.url}")

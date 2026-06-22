@@ -1,6 +1,6 @@
 # AI Poker
 
-AI Poker is a local-first, always-on No-Limit Texas Hold'em broadcast. Local [Ollama](https://ollama.com/) models play a rules-checked cash game or sit-and-go while a Qt control room and 1080p OBS overlay expose every card, pot, decision, equity swing, and season storyline to viewers.
+AI Poker League is a local-first, always-on fictional No-Limit Texas Hold'em sports simulation. Local [Ollama](https://ollama.com/) models play for simulated chips while a deterministic rules engine, Qt control room, and 1080p OBS overlay present every card, pot, decision, equity swing, and season storyline. It is entertainment software with no real-money wagering, deposits, prizes, promotions, or payouts.
 
 The engine is designed to be auditable and recoverable for 24/7 operation. It enforces legal actions independently of model output; an LLM can make a poor strategic decision, but it cannot check while facing a bet, create chips, see another player's hole cards, or award itself the wrong pot.
 
@@ -42,6 +42,8 @@ Copy `config.example.json` to `config.json` to select per-seat Ollama models, ga
 ## OBS and audio
 
 The full browser source is `http://127.0.0.1:8765/overlay`. Configure OBS at **1920×1080** with the same frame rate as the stream. Use `?compact=1` for the compact panel. The server binds only to localhost unless configured otherwise.
+
+For Twitch-ready title, description, panel copy, moderation notes, audio capture, VOD guidance, and a preflight checklist, use the [Twitch Broadcast Guide](docs/TWITCH_BROADCAST_GUIDE.md). Copy-safe live metadata is also available from `http://127.0.0.1:8765/stream-info`. The subtle simulation-only overlay label is enabled by default and can be disabled with `overlay_disclaimer_enabled: false` or `--no-simulation-disclaimer` for private previews.
 
 - `/state` publishes backward-compatible state plus the version-2 player, pot, tournament, analysis, audio, and health schema.
 - `/events` is a reconnectable server-sent event stream with monotonic IDs for animation and custom integrations.

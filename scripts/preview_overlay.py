@@ -91,6 +91,7 @@ def parse_args(argv=None):
     parser.add_argument("--seed", type=int, default=20260622)
     parser.add_argument("--audio", action="store_true", help="Enable browser-source cue audio")
     parser.add_argument("--reduced-motion", action="store_true")
+    parser.add_argument("--no-simulation-disclaimer", action="store_true")
     return parser.parse_args(argv)
 
 
@@ -118,6 +119,7 @@ def main(argv=None):
         port=args.port,
         reduced_motion=args.reduced_motion,
         audio_enabled=args.audio,
+        disclaimer_enabled=not args.no_simulation_disclaimer,
     ).start()
     game.service_health["overlay"] = "online"
     stop = Event()

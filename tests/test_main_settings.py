@@ -29,3 +29,11 @@ def test_broadcast_pacing_cli_overrides_are_milliseconds(tmp_path):
 
 def test_overlay_preview_can_exercise_six_seat_layout():
     assert parse_preview_args(["--players", "6"]).players == 6
+
+
+def test_simulation_disclaimer_can_be_disabled_for_private_preview(tmp_path):
+    settings = build_settings(
+        parse_args(["--config", str(tmp_path / "missing.json"), "--no-simulation-disclaimer"])
+    )
+    assert not settings.overlay_disclaimer_enabled
+    assert parse_preview_args(["--no-simulation-disclaimer"]).no_simulation_disclaimer

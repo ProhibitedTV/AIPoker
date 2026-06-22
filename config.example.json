@@ -43,6 +43,7 @@
   "overlay_font": "Inter, Segoe UI, Arial, sans-serif",
   "overlay_layout": "horizontal",
   "overlay_audio_enabled": false,
+  "overlay_disclaimer_enabled": true,
   "audio_enabled": true,
   "audio_volume": 0.45,
   "ambience_enabled": true,

@@ -61,6 +61,7 @@ class AppSettings:
     overlay_font: str = "Inter, Segoe UI, Arial, sans-serif"
     overlay_layout: str = "horizontal"
     overlay_audio_enabled: bool = False
+    overlay_disclaimer_enabled: bool = True
     tts_enabled: bool = False
     tts_volume: float = 0.8
     tts_rate: int = 175

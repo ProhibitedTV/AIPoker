@@ -40,7 +40,7 @@ body{padding:24px;background:radial-gradient(circle at 50% 48%,#07150f 0,#010503
 .header{grid-template-columns:minmax(300px,1.8fr) repeat(4,minmax(112px,.62fr));gap:8px;min-height:60px}
 .brand,.metric,.storybar,.player,.ticker{backdrop-filter:blur(12px);border:1px solid #ffffff17;background:linear-gradient(165deg,#0a211adf,#020906ed);box-shadow:0 10px 24px #0006,inset 0 1px #ffffff08}
 .brand{position:relative;overflow:hidden;padding:9px 17px;border-radius:12px}
-.brand:after{content:'24 / 7 AI TABLE';position:absolute;right:15px;bottom:9px;color:#8ca99e;font-size:8px;font-weight:900;letter-spacing:.16em}
+.brand:after{content:'AUTONOMOUS AI LEAGUE';position:absolute;right:15px;bottom:9px;color:#8ca99e;font-size:8px;font-weight:900;letter-spacing:.16em}.simulation-tag{position:absolute;right:15px;top:9px;color:#e6ca70;font-size:7px;font-weight:950;letter-spacing:.1em}.simulation-tag.hidden{display:none}
 .logo{font-size:24px;letter-spacing:.17em;background:linear-gradient(180deg,#ffe99b,#c99734);-webkit-background-clip:text;color:transparent;filter:drop-shadow(0 2px 8px #f0c85b33)}
 .live{font-size:9px}.metric{position:relative;display:flex;flex-direction:column;justify-content:center;padding:7px 10px;border-radius:10px;overflow:hidden}.metric small{font-size:8px}.metric strong{font-size:19px}.metric.emphasis{border-color:#dbbc6266;background:linear-gradient(160deg,#1b2818e8,#080c08ed)}.metric.emphasis strong{color:#f7d675}.metric.bump strong{animation:numberBump .5s cubic-bezier(.2,.8,.2,1)}.metric-sub{height:11px;margin-top:1px;color:#78978a;font-size:8px;font-weight:800;letter-spacing:.05em;white-space:nowrap}
 .storybar{display:grid;grid-template-columns:auto minmax(280px,1.15fr) minmax(360px,1fr);align-items:center;gap:14px;min-height:52px;padding:7px 12px;border-radius:12px;border-color:#d4b95b33;background:linear-gradient(90deg,#071712f2,#10281feb 52%,#07120ff2)}
@@ -71,7 +71,7 @@ body{padding:24px;background:radial-gradient(circle at 50% 48%,#07150f 0,#010503
 </style></head>
 <body data-connected="false" class="__REDUCED__ __AUDIO__">
 <main class="board layout-__LAYOUT__">
- <header class="header"><div class="brand"><div class="logo">AI POKER</div><div class="live" id="connection">RECONNECTING</div></div>
+ <header class="header"><div class="brand"><div class="logo">AI POKER</div><div class="live" id="connection">RECONNECTING</div><div class="simulation-tag __DISCLAIMER_CLASS__">SIMULATION ONLY · FICTIONAL CHIPS · NO REAL MONEY</div></div>
   <div class="metric"><small>HAND</small><strong id="hand">0</strong><span class="metric-sub">CURRENT DEAL</span></div>
   <div class="metric emphasis" id="potMetric"><small>TOTAL POT</small><strong id="pot">0</strong><span class="metric-sub">CHIPS TO WIN</span></div>
   <div class="metric"><small>BLINDS</small><strong id="blinds">0 / 0</strong><span class="metric-sub">FORCED OPENERS</span></div>
@@ -173,7 +173,7 @@ class QuietThreadingHTTPServer(ThreadingHTTPServer):
 
 
 class OverlayServer:
-    def __init__(self, game, host="127.0.0.1", port=8765, background="#071c13", accent="#e6b94a", font="Arial, sans-serif", layout="horizontal", reduced_motion=False, audio_enabled=False):
+    def __init__(self, game, host="127.0.0.1", port=8765, background="#071c13", accent="#e6b94a", font="Arial, sans-serif", layout="horizontal", reduced_motion=False, audio_enabled=False, disclaimer_enabled=True):
         self.game = game
         self.host = host
         self.port = port
@@ -183,6 +183,7 @@ class OverlayServer:
         self.layout = layout if layout in {"horizontal", "vertical"} else "horizontal"
         self.reduced_motion = bool(reduced_motion)
         self.audio_enabled = bool(audio_enabled)
+        self.disclaimer_enabled = bool(disclaimer_enabled)
         self._server = None
         self._thread = None
         self._closing = False
@@ -202,10 +203,12 @@ class OverlayServer:
                 elif path == "/events":
                     self._send_events(parse_qs(parsed.query))
                 elif path in ("/", "/overlay"):
-                    page = (OVERLAY_HTML.replace("__BACKGROUND__", outer.background).replace("__ACCENT__", outer.accent).replace("__FONT__", outer.font).replace("__LAYOUT__", outer.layout).replace("__REDUCED__", "reduced" if outer.reduced_motion else "").replace("__AUDIO__", "audio-on" if outer.audio_enabled else ""))
+                    page = (OVERLAY_HTML.replace("__BACKGROUND__", outer.background).replace("__ACCENT__", outer.accent).replace("__FONT__", outer.font).replace("__LAYOUT__", outer.layout).replace("__REDUCED__", "reduced" if outer.reduced_motion else "").replace("__AUDIO__", "audio-on" if outer.audio_enabled else "").replace("__DISCLAIMER_CLASS__", "" if outer.disclaimer_enabled else "hidden"))
                     self._send(200, "text/html; charset=utf-8", page.encode("utf-8"))
                 elif path == "/health":
                     self._send_json({"status": "ok", "schema_version": 2, "event_sequence": outer.game.state_snapshot()["event_sequence"]})
+                elif path == "/stream-info":
+                    self._send_json(outer.stream_info())
                 else:
                     self._send_json({"error": "not found"}, status=404)
 
@@ -268,6 +271,30 @@ class OverlayServer:
     @property
     def url(self):
         return f"http://{self.host}:{self.port}/overlay"
+
+    def stream_info(self):
+        """Return copy-safe public metadata without cards, prompts, or local paths."""
+        state = self.game.state_snapshot()
+        tournament = state.get("tournament") or {}
+        if state["mode"] == "tournament":
+            program = f"Sit & Go {tournament.get('number', 1)} · Level {tournament.get('level', 1)}"
+            summary = f"Tournament {tournament.get('number', 1)}, hand {tournament.get('hand', 0)}. All chips and records are fictional."
+        else:
+            program = "AI Poker League Exhibition Table"
+            summary = f"Fixed {state['blinds']['small']}/{state['blinds']['big']} simulated-chip exhibition game."
+        return {
+            "schema_version": 1,
+            "title": "AI Poker League | Autonomous AI Players | Simulation Only | No Real Money",
+            "description": "Autonomous local AI players compete with fictional chips in a continuous rules-checked poker simulation. Entertainment software only; no real-world wagering or prizes.",
+            "disclaimer": "Simulation only · fictional chips · no real money · no prizes",
+            "current_program": program,
+            "season_summary": summary,
+            "players": [
+                {"id": player["id"], "name": player["name"], "bio": player["profile"]["persona"]}
+                for player in state["players"]
+            ],
+            "tech_stack": "Local-first Python rules engine, Ollama AI players, Qt control room, and an OBS browser overlay.",
+        }
 
     def close(self):
         self._closing = True
