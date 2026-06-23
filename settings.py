@@ -75,6 +75,7 @@ class AppSettings:
     music_path: str = "music"
     music_volume: float = 0.18
     music_shuffle: bool = True
+    sound_effects_path: str = "sound_effects"
     voice_volume: float = 0.8
     audio_cache_path: str = "data/audio_cache"
     stats_path: str = "data/leaderboard.json"

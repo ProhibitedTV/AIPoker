@@ -56,10 +56,12 @@ python scripts/preview_overlay.py --port 8775 --health-state audio-muted
 - For the simplest OBS setup, enable **Control audio via OBS** on the Browser Source and let `http://127.0.0.1:8765/overlay` carry table cues plus the casino music bed.
 - Use `?audio=0`, `?music=0`, or `overlay_audio_enabled: false` only when desktop Foley, casino music, ambience, and voices are captured separately through OBS Application Audio Capture.
 - The default playlist scans `music/` for WAV tracks, shuffles them, scales desktop playback into the audio cache at `music_volume`, and serves the same tracks to the browser source.
+- The browser source also scans `sound_effects/` for short Foley samples; `card_flip.mp3` is used for single-card/deck reveal cues when audio is enabled.
 - Use `--no-music` for silent test streams or `--music-volume 0.12` to tuck the bed farther under table action.
 - Keep voices above ambience and verify the limiter does not pump during winner stingers.
 - Review custom tracks for stream rights before going live; user-supplied music is outside the built-in generated-safe Foley/ambience set.
 - Run a private recording before launch and listen for missing, doubled, or clipped audio. If OBS meters are silent, refresh the browser source and confirm the source URL is not using `?audio=0`.
+- Generate local smoke artifacts with `python scripts/broadcast_smoke.py`; review `artifacts/broadcast-smoke/overlay-full.html`, `overlay-compact.html`, `state.json`, and `health.json` before long unattended runs.
 
 ## Chat, VODs, and clips
 
@@ -73,12 +75,14 @@ python scripts/preview_overlay.py --port 8775 --health-state audio-muted
 ## Before going live
 
 - [ ] `/health`, `/state`, `/events`, `/stream-info`, and `/overlay` respond locally and the health badge matches the fixture or live service state.
+- [ ] `python scripts/broadcast_smoke.py` produced fresh full and compact overlay artifacts.
 - [ ] OBS canvas and output are 1920×1080 with no safe-area clipping.
 - [ ] The title, description, panel, and category clearly frame the stream as fictional AI entertainment.
 - [ ] The overlay simulation disclaimer is visible.
 - [ ] Ollama health or deterministic fallback status is visible and play continues during a model outage.
 - [ ] Cards, chips, music, voices, ambience, and winner cues are readable without doubling.
 - [ ] Continuous play, checkpoint persistence, and disk-space monitoring are enabled.
+- [ ] The current program segment, season story, and league context are visible in the bottom ticker.
 - [ ] Moderators have the disclaimer and know there are no real-world stakes or prizes.
 - [ ] A short local recording has been reviewed before publishing the live scene.
 

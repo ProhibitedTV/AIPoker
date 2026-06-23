@@ -17,6 +17,7 @@ import wave
 
 class AudioService:
     MUSIC_EXTENSIONS = {".wav"}
+    SOUND_EFFECT_EXTENSIONS = {".wav"}
 
     def __init__(
         self,
@@ -31,6 +32,7 @@ class AudioService:
         music_dir="music",
         music_volume=0.18,
         music_shuffle=True,
+        sound_effects_dir="sound_effects",
     ):
         self.enabled = enabled
         self.volume = max(0.0, min(1.0, volume))
@@ -41,6 +43,7 @@ class AudioService:
         self.music_dir = Path(music_dir)
         self.music_volume = max(0.0, min(1.0, music_volume))
         self.music_shuffle = bool(music_shuffle)
+        self.sound_effects_dir = Path(sound_effects_dir)
         self.cache_dir = Path(cache_dir)
         self._backend_owner = None
         self._playback_is_async = False
@@ -56,6 +59,7 @@ class AudioService:
         self._voice_active = False
         self._cues = {}
         self.music_tracks = self._discover_music_tracks()
+        self.sound_effects = self._discover_sound_effects()
         self._music_rng = random.Random("casino-music-playlist")
         if self.available:
             self._cues = self._ensure_cues()
@@ -244,9 +248,15 @@ class AudioService:
             "all_in": 0.68,
             "elimination": 0.72,
         }.items():
-            path = self.cache_dir / f"{name}-{volume_key}-{effects_key}.wav"
-            if not path.exists():
-                self._write_cue(path, name, duration)
+            source = self._effect_source_for_cue(name)
+            if source:
+                path = self._effect_cache_destination(name, source, self.volume * self.effects_volume)
+                if not path.exists():
+                    self._prepare_effect_cue(name, source, path)
+            else:
+                path = self.cache_dir / f"{name}-{volume_key}-{effects_key}.wav"
+                if not path.exists():
+                    self._write_cue(path, name, duration)
             cues[name] = path
         ambience_path = self.cache_dir / f"ambience-{volume_key}-{round(self.ambience_volume * 100)}.wav"
         if not ambience_path.exists():
@@ -288,6 +298,37 @@ class AudioService:
                 key=lambda path: path.name.lower(),
             )
         )
+
+    def _discover_sound_effects(self):
+        if not self.sound_effects_dir.exists() or not self.sound_effects_dir.is_dir():
+            return {}
+        effects = {}
+        for path in sorted(self.sound_effects_dir.iterdir(), key=lambda item: item.name.lower()):
+            if not path.is_file() or path.suffix.lower() not in self.SOUND_EFFECT_EXTENSIONS:
+                continue
+            normalized = path.stem.lower().replace("-", "_").replace(" ", "_")
+            if "card" in normalized and "flip" in normalized:
+                effects["card_flip"] = path
+        return effects
+
+    def _effect_source_for_cue(self, cue):
+        if cue in {"card", "reveal"}:
+            return self.sound_effects.get("card_flip")
+        return None
+
+    def _effect_cache_destination(self, name, source, gain):
+        try:
+            stat = source.stat()
+            identity = f"{source.resolve()}|{stat.st_mtime_ns}|{stat.st_size}|{round(gain * 1000)}"
+        except OSError:
+            identity = f"{source}|missing|{round(gain * 1000)}"
+        digest = hashlib.sha1(identity.encode("utf-8", "ignore")).hexdigest()[:12]
+        return self.cache_dir / f"effect-{name}-{digest}.wav"
+
+    def _prepare_effect_cue(self, name, source, destination):
+        with wave.open(str(source), "rb") as input_wave:
+            params = input_wave.getparams()
+        self._write_scaled_wave(source, destination, self.volume * self.effects_volume, params)
 
     def _music_gain(self):
         return max(0.0, min(1.0, self.volume * self.music_volume))

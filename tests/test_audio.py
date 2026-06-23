@@ -88,3 +88,28 @@ def test_audio_service_discovers_and_scales_music_playlist(tmp_path):
         frames = cached.readframes(cached.getnframes())
     first_loud_sample = int.from_bytes(frames[2:4], "little", signed=True)
     assert 2500 < first_loud_sample < 3500
+
+
+def test_audio_service_uses_custom_wav_card_flip_when_available(tmp_path):
+    sound_dir = tmp_path / "sound_effects"
+    sound_dir.mkdir()
+    source = sound_dir / "card_flip.wav"
+    write_tiny_wave(source, samples=(0, 16000, -16000, 0))
+
+    service = AudioService(
+        enabled=True,
+        volume=0.5,
+        effects_volume=0.5,
+        cache_dir=tmp_path / "cache",
+        playback=lambda _path: None,
+        sound_effects_dir=sound_dir,
+    )
+    try:
+        assert service.sound_effects["card_flip"] == source
+        assert service._cues["card"].name.startswith("effect-card-")
+        with wave.open(str(service._cues["card"]), "rb") as cached:
+            frames = cached.readframes(cached.getnframes())
+        first_loud_sample = int.from_bytes(frames[2:4], "little", signed=True)
+        assert 3500 < first_loud_sample < 4500
+    finally:
+        service.close()

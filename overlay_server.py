@@ -69,6 +69,8 @@ body{padding:24px;background:radial-gradient(circle at 50% 48%,#07150f 0,#010503
 @keyframes tickerSlide{0%{opacity:0;transform:translateX(18px)}100%{opacity:1;transform:none}}
 @keyframes winnerHalo{50%{box-shadow:0 0 0 2px #f2cf68,0 0 50px #e6b94abb}}
 @keyframes confettiFall{0%{opacity:0;transform:translateY(-30px) rotate(0)}8%{opacity:1}100%{opacity:0;transform:translateY(780px) rotate(720deg)}}
+/* Casino seated-table layout: players orbit the felt; bottom bar carries broadcast context. */
+.table{position:relative;min-height:610px;display:block;padding:0 2.5%}.center{position:absolute;z-index:4;left:50%;top:47%;width:min(560px,48vw);transform:translate(-50%,-50%)}.dealer-station{position:absolute;z-index:5;left:50%;top:4%;width:318px;transform:translateX(-50%);display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;padding:8px 12px;border:1px solid #efd16b4a;border-radius:16px;background:linear-gradient(180deg,#07130ff2,#020906f6);box-shadow:0 12px 30px #0009,inset 0 1px #fff1}.dealer-icon{width:38px;height:38px;border-radius:50%;background:radial-gradient(circle at 50% 28%,#f5d99c 0 20%,#2c1d14 21% 36%,#0c1712 37%);border:1px solid #efd16b66;box-shadow:0 0 18px #e7bd4d33}.dealer-copy{min-width:0}.dealer-copy strong{display:block;color:#ffe28a;font-size:10px;font-weight:950;letter-spacing:.14em}.dealer-copy small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#9fb6ac;font-size:8px;font-weight:800}.dealer-tray{display:flex;gap:3px}.tray-chip{width:12px;height:24px;border-radius:4px;background:repeating-linear-gradient(180deg,#f4d77e 0 3px,#8e322b 3px 6px);box-shadow:0 2px 5px #0008}.deck-stack{position:absolute;left:calc(50% + 190px);top:16%;width:48px;height:66px;border-radius:8px;background:linear-gradient(145deg,#14335a,#071a2e);border:1px solid #d8c06b55;box-shadow:6px 5px 0 #061422,12px 10px 0 #040c14,0 8px 18px #000b}.deck-stack:after{content:'DECK';position:absolute;inset:0;display:grid;place-items:center;color:#d9c67477;font-size:8px;font-weight:950;letter-spacing:.12em}.burn-stack{position:absolute;left:calc(50% - 240px);top:16%;padding:6px 9px;border:1px dashed #d7bf6d44;border-radius:9px;background:#06130fd9;color:#a7b8b0;font-size:8px;font-weight:900;letter-spacing:.1em}.center .potline{margin-top:3px}.players{position:absolute;z-index:6;inset:0;display:block;pointer-events:none}.player{position:absolute;pointer-events:auto;width:265px;min-height:186px;padding:9px 10px 8px}.player:before{content:'';position:absolute;z-index:-2;left:50%;top:50%;width:120px;height:28px;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(ellipse,#0007 0,#0000 70%)}.seat-label{position:absolute;left:10px;top:-12px;padding:3px 8px;border-radius:999px;background:#07130ff0;border:1px solid #ffffff18;color:#98b1a6;font-size:7px;font-weight:950;letter-spacing:.12em}.stack-graphic{display:flex;align-items:flex-end;gap:2px}.stack-chip{width:13px;border-radius:4px 4px 2px 2px;background:repeating-linear-gradient(180deg,#fff4b8 0 3px,var(--player,#b83632) 3px 6px);border:1px solid #0005;box-shadow:0 2px 5px #0009}.stack-chip:nth-child(1){height:17px}.stack-chip:nth-child(2){height:23px}.stack-chip:nth-child(3){height:14px}body[data-seats="2"] .player:nth-child(1){left:8%;bottom:7%}body[data-seats="2"] .player:nth-child(2){right:8%;top:13%}body[data-seats="3"] .player:nth-child(1){left:8%;bottom:7%}body[data-seats="3"] .player:nth-child(2){right:8%;bottom:7%}body[data-seats="3"] .player:nth-child(3){left:50%;top:8%;transform:translateX(-50%)}body[data-seats="4"] .player:nth-child(1){left:5%;bottom:7%}body[data-seats="4"] .player:nth-child(2){right:5%;bottom:7%}body[data-seats="4"] .player:nth-child(3){left:6%;top:14%}body[data-seats="4"] .player:nth-child(4){right:6%;top:14%}body[data-seats="5"] .player:nth-child(1){left:5%;bottom:7%}body[data-seats="5"] .player:nth-child(2){left:50%;bottom:5%;transform:translateX(-50%)}body[data-seats="5"] .player:nth-child(3){right:5%;bottom:7%}body[data-seats="5"] .player:nth-child(4){left:7%;top:13%}body[data-seats="5"] .player:nth-child(5){right:7%;top:13%}body[data-seats="6"] .player:nth-child(1){left:3%;bottom:7%}body[data-seats="6"] .player:nth-child(2){left:50%;bottom:5%;transform:translateX(-50%)}body[data-seats="6"] .player:nth-child(3){right:3%;bottom:7%}body[data-seats="6"] .player:nth-child(4){left:3%;top:13%}body[data-seats="6"] .player:nth-child(5){left:50%;top:8%;transform:translateX(-50%)}body[data-seats="6"] .player:nth-child(6){right:3%;top:13%}.ticker{grid-template-columns:auto minmax(260px,1.2fr) minmax(320px,1fr) minmax(230px,.7fr);min-height:64px}.broadcast-context{min-width:0;display:grid;gap:3px}.broadcast-context strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff0b4;font-size:11px;font-weight:950}.broadcast-context span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#9fb8ad;font-size:10px}.compact .table{min-height:360px;display:grid}.compact .dealer-station,.compact .deck-stack,.compact .burn-stack{display:none}.compact .center{position:relative;left:auto;top:auto;width:auto;transform:none}.compact .players{position:relative;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:7px}.compact .player{position:relative;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;width:auto;min-height:160px}.compact .ticker{grid-template-columns:auto 1fr}.compact .broadcast-context,.compact .history{display:none}
 @media(max-width:1100px){.storybar{grid-template-columns:auto 1fr}.street-progress{display:none}.players{grid-template-columns:repeat(2,1fr)}.header{grid-template-columns:1.4fr repeat(3,1fr)}.header .optional{display:none}}
 </style></head>
 <body data-connected="false" data-music="__MUSIC__" class="__REDUCED__ __AUDIO__">
@@ -82,15 +84,15 @@ body{padding:24px;background:radial-gradient(circle at 50% 48%,#07150f 0,#010503
   <div class="story"><div class="story-title" id="storyTitle">The table is getting ready</div><div class="story-copy" id="storyCopy">Watch here for the key decision in plain English.</div></div>
   <div class="street-progress" id="streetProgress"><div class="step" data-step="pre-flop">PRIVATE CARDS</div><div class="step" data-step="flop">FLOP</div><div class="step" data-step="turn">TURN</div><div class="step" data-step="river">RIVER</div><div class="step" data-step="showdown">WINNER</div></div>
  </section>
- <section class="table"><div class="felt-ring"></div><div class="center"><div class="stage" id="stage">Waiting</div><div class="stage-help" id="stageHelp">Two private cards are dealt to every player.</div>
+ <section class="table"><div class="felt-ring"></div><div class="dealer-station"><div class="dealer-icon"></div><div class="dealer-copy"><strong id="dealerTitle">DEALER STATION</strong><small id="dealerDetail">Deck ready · burn 0</small></div><div class="dealer-tray"><i class="tray-chip"></i><i class="tray-chip"></i><i class="tray-chip"></i></div></div><div class="deck-stack"></div><div class="burn-stack" id="burnStack">BURN 0</div><div class="center"><div class="stage" id="stage">Waiting</div><div class="stage-help" id="stageHelp">Two private cards are dealt to every player.</div>
   <div class="cards" id="cards"><span class="card placeholder"></span><span class="card placeholder"></span><span class="card placeholder"></span><span class="card placeholder"></span><span class="card placeholder"></span></div>
   <div class="potline" id="pots"></div><div class="analysis-note" id="analysis">Spectator analysis warming up</div></div><div class="players" id="players"></div></section>
- <footer class="ticker"><div class="ticker-label">LIVE ACTION</div><div class="commentary" id="commentary" aria-live="polite">Table ready</div><div class="history" id="history"></div></footer>
+ <footer class="ticker"><div class="ticker-label">LIVE ACTION</div><div class="commentary" id="commentary" aria-live="polite">Table ready</div><div class="broadcast-context"><strong id="programContext">Program warming up</strong><span id="storyContext">Season storylines loading</span></div><div class="history" id="history"></div></footer>
  <aside class="winner-banner" id="winnerBanner"><div class="winner-kicker">HAND COMPLETE</div><div class="winner-title" id="winnerTitle">WINNER</div><div class="winner-detail" id="winnerDetail"></div><div class="winner-amount" id="winnerAmount"></div></aside>
  <div class="celebration" id="celebration" aria-hidden="true"></div>
 </main>
 <script>
-const suits={hearts:'&hearts;',diamonds:'&diams;',clubs:'&clubs;',spades:'&spades;'},ranks={11:'J',12:'Q',13:'K',14:'A'},musicTracks=__MUSIC_TRACKS__;
+const suits={hearts:'&hearts;',diamonds:'&diams;',clubs:'&clubs;',spades:'&spades;'},ranks={11:'J',12:'Q',13:'K',14:'A'},musicTracks=__MUSIC_TRACKS__,soundEffects=__SOUND_EFFECTS__;
 const q=new URLSearchParams(location.search);document.body.classList.toggle('compact',q.get('compact')==='1');
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const stageOrder=['pre-flop','flop','turn','river','showdown'];
@@ -132,6 +134,7 @@ function updateProgress(stageName){const current=Math.max(0,stageOrder.indexOf(s
 function updateHealth(s){const h=s.health||{},state=h.overall||'normal';healthPill.className=`health-pill ${state}`;healthLabel.textContent=h.label||'TABLE HEALTHY';healthDetail.textContent=h.detail||'Broadcast systems ready';healthPill.title=Object.entries(h.components||{}).map(([key,value])=>`${key}: ${value}`).join(' · ')}
 function audioMix(){const a=lastState?.audio||{};return{master:Math.max(0,Math.min(1,Number(a.master??.45))),effects:Math.max(0,Math.min(1,Number(a.effects??.72))),music:Math.max(0,Math.min(1,Number(a.music??.18))),musicOn:a.music_enabled!==false}}
 let musicPlayer=null,musicIndex=0,musicBlocked=false;
+let lastEffectAt=0;
 function nextMusicTrack(){if(!musicTracks.length)return null;const track=musicTracks[musicIndex%musicTracks.length];musicIndex+=1;return track}
 function updateMusicVolume(){if(!musicPlayer)return;const mix=audioMix();musicPlayer.volume=Math.max(0,Math.min(.55,mix.master*mix.music))}
 function startMusic(){if(!document.body.classList.contains('audio-on')||document.body.dataset.music!=='on'||!musicTracks.length)return;const mix=audioMix();if(!mix.musicOn||mix.master<=0||mix.music<=0)return;if(musicPlayer&&!musicPlayer.paused){updateMusicVolume();return}const track=nextMusicTrack();if(!track)return;musicPlayer=new Audio(track);musicPlayer.preload='auto';musicPlayer.onended=()=>{musicPlayer=null;setTimeout(startMusic,350)};musicPlayer.onerror=()=>{musicPlayer=null;setTimeout(startMusic,1500)};updateMusicVolume();musicPlayer.play().then(()=>{musicBlocked=false}).catch(()=>{musicBlocked=true})}
@@ -141,6 +144,7 @@ function render(s){
  connection.textContent=s.services?.ollama==='online'?'LOCAL LIVE · OLLAMA':s.services?.ollama==='preview'?'LOCAL LIVE · DEMO':s.services?.ollama==='unknown'?'LOCAL LIVE':'LOCAL LIVE · MODEL FALLBACK';
  updateHealth(s);
  hand.textContent=Number(s.hand_number).toLocaleString();stage.textContent=s.stage;stageHelp.textContent=stageHelpCopy[s.stage.toLowerCase()]||'The table is preparing the next hand.';
+ dealerTitle.textContent=s.dealer?`DEALER: ${s.dealer}`:'DEALER STATION';dealerDetail.textContent=`${s.program?.segment||'Live Table'} · hand ${Number(s.hand_number||0).toLocaleString()}`;burnStack.textContent=`BURN ${Number(s.burn_count||0)}`;
  const livePot=Number(s.pot||0);pot.textContent=livePot.toLocaleString();if(lastPot>=0&&livePot!==lastPot){potMetric.classList.remove('bump');requestAnimationFrame(()=>potMetric.classList.add('bump'));setTimeout(()=>potMetric.classList.remove('bump'),600)}lastPot=livePot;
  blinds.textContent=`${s.blinds.small} / ${s.blinds.big}${s.blinds.ante?' + '+s.blinds.ante:''}`;mode.textContent=s.mode==='tournament'?'SIT & GO':'CASH GAME';level.textContent=s.tournament?`LEVEL ${s.tournament.level} · ${s.tournament.hands_remaining} HANDS LEFT`:'FIXED 10 / 20 STAKES';
  const actor=s.players.find(p=>p.next_to_act),moment=momentFor(s,actor),story=storyFor(s,actor);momentBadge.textContent=moment[0];momentBadge.className=`moment-badge ${moment[1]}`;storyTitle.textContent=story[0];storyCopy.innerHTML=story[1];updateProgress(s.stage);
@@ -158,13 +162,15 @@ function render(s){
    const wagerMarkup=wager?`<div class="wager ${wagerFresh?'fresh':''}"><span class="mini-chip" style="--chip:${esc(p.profile?.color||'#b83632')}"></span><span class="mini-chip" style="--chip:${esc(p.profile?.color||'#b83632')}"></span><span class="mini-chip" style="--chip:${esc(p.profile?.color||'#b83632')}"></span><b>${wager.toLocaleString()} BET</b></div>`:'<div class="wager empty">No wager</div>';
    const roles=`${p.id===leader?.id?'<span class="badge leader">CHIP LEADER</span>':''}${p.is_dealer?'<span class="badge gold">DEALER</span>':''}${p.is_small_blind?'<span class="badge">SMALL BLIND</span>':''}${p.is_big_blind?'<span class="badge">BIG BLIND</span>':''}${p.all_in?'<span class="badge danger">ALL-IN</span>':''}`;
    const equity=p.equity==null?null:Number(p.equity),equityWidth=equity==null?0:Math.max(2,equity),chance=equity==null?'<span class="chance">CALCULATING ODDS</span>':`<span class="chance"><b>${equity.toFixed(0)}%</b> CHANCE TO WIN</span>`;
-   return `<article class="player ${p.next_to_act?'next':''} ${p.id===favorite?.id?'favorite':''} ${highlightedWinners.has(p.id)?'winner':''} ${esc(p.status)}" style="--player:${esc(p.profile?.color||'#4fb77b')}"><div class="player-head"><div class="identity"><div class="avatar">${esc(p.name.slice(0,1).toUpperCase())}</div><div class="name-block"><div class="name">${esc(p.name)}</div><div class="model">${esc(p.profile?.persona||'AI player')}</div></div></div><div class="badges">${roles}</div></div><div class="hole">${cardsForPlayer.map((c,index)=>card(c,index,holeFresh)).join('')}</div>${wagerMarkup}<div class="handline"><span class="hand-name">${esc(p.hand_label||'Waiting for cards')}</span>${chance}</div><div class="equity-meter"><span style="width:${equityWidth}%"></span></div><div class="action ${actionFresh?'fresh':''}">${esc(p.action||'Waiting')}${p.hand_commitment?' · '+Number(p.hand_commitment).toLocaleString()+' committed':''}</div><div class="stackrow"><strong>${Number(p.chips).toLocaleString()} CHIPS</strong><span>${p.folded?'OUT THIS HAND':p.all_in?'EVERY CHIP IS IN':'STACK'}</span></div><div class="statrow"><span class="plain-stat">Plays ${Number(p.stats?.vpip||0).toFixed(0)}% of hands</span><span class="plain-stat">Raises ${Number(p.stats?.pfr||0).toFixed(0)}%</span></div></article>`;
+   return `<article class="player ${p.next_to_act?'next':''} ${p.id===favorite?.id?'favorite':''} ${highlightedWinners.has(p.id)?'winner':''} ${esc(p.status)}" style="--player:${esc(p.profile?.color||'#4fb77b')}"><div class="seat-label">SEAT ${Number(p.seat)+1}</div><div class="player-head"><div class="identity"><div class="avatar">${esc(p.name.slice(0,1).toUpperCase())}</div><div class="name-block"><div class="name">${esc(p.name)}</div><div class="model">${esc(p.profile?.persona||'AI player')}</div></div></div><div class="badges">${roles}</div></div><div class="hole">${cardsForPlayer.map((c,index)=>card(c,index,holeFresh)).join('')}</div>${wagerMarkup}<div class="handline"><span class="hand-name">${esc(p.hand_label||'Waiting for cards')}</span>${chance}</div><div class="equity-meter"><span style="width:${equityWidth}%"></span></div><div class="action ${actionFresh?'fresh':''}">${esc(p.action||'Waiting')}${p.hand_commitment?' · '+Number(p.hand_commitment).toLocaleString()+' committed':''}</div><div class="stackrow"><strong>${Number(p.chips).toLocaleString()} CHIPS</strong><div class="stack-graphic"><i class="stack-chip"></i><i class="stack-chip"></i><i class="stack-chip"></i></div><span>${p.folded?'OUT THIS HAND':p.all_in?'EVERY CHIP IS IN':'STACK'}</span></div><div class="statrow"><span class="plain-stat">Plays ${Number(p.stats?.vpip||0).toFixed(0)}% of hands</span><span class="plain-stat">Raises ${Number(p.stats?.pfr||0).toFixed(0)}%</span></div></article>`;
  }).join('');
  const feed=s.commentary||[],latest=feed.at(-1)||'Table ready';commentary.textContent=latest;if(latest!==lastCommentary){commentary.classList.remove('fresh');requestAnimationFrame(()=>commentary.classList.add('fresh'));lastCommentary=latest}
+ const beat=(s.storylines||[])[Number(s.hand_number||0)%(Math.max(1,(s.storylines||[]).length))]||{};programContext.textContent=`${s.program?.segment||'Live Table'} — ${s.league?.current_title||'AI Poker League'}`;storyContext.textContent=beat.text||s.program?.bumper||'Season context warming up.';
  history.textContent=(s.action_history||[]).slice(-3).map(a=>`${s.players[a.seat]?.name||''} ${plainAction(a.action)}${a.amount?' '+Number(a.amount).toLocaleString():''}`).join('  ·  ')
  updateMusicVolume();startMusic();
 }
-function cue(type){if(!document.body.classList.contains('audio-on'))return;try{const C=window.AudioContext||window.webkitAudioContext,ctx=window.__ctx||(window.__ctx=new C()),o=ctx.createOscillator(),g=ctx.createGain(),mix=audioMix(),level=Math.max(.006,Math.min(.055,.04*mix.master*mix.effects));if(ctx.state==='suspended')ctx.resume();o.frequency.value=type==='winner'?740:type==='community'?440:type==='all_in'||type==='tournament_winner'?185:260;g.gain.setValueAtTime(level,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.0001,ctx.currentTime+(type==='winner'?.22:.12));o.connect(g).connect(ctx.destination);o.start();o.stop(ctx.currentTime+(type==='winner'?.24:.13))}catch(_){}}
+function sampleCue(type){const sample=(type==='deal'||type==='community')?soundEffects.card_flip:null;if(!sample)return false;const now=performance.now();if(now-lastEffectAt<80)return true;lastEffectAt=now;try{const mix=audioMix(),a=new Audio(sample);a.volume=Math.max(.01,Math.min(.65,mix.master*mix.effects));a.play().catch(()=>{});return true}catch(_){return false}}
+function cue(type){if(!document.body.classList.contains('audio-on'))return;if(sampleCue(type))return;try{const C=window.AudioContext||window.webkitAudioContext,ctx=window.__ctx||(window.__ctx=new C()),o=ctx.createOscillator(),g=ctx.createGain(),mix=audioMix(),level=Math.max(.006,Math.min(.055,.04*mix.master*mix.effects));if(ctx.state==='suspended')ctx.resume();o.frequency.value=type==='winner'?740:type==='community'?440:type==='all_in'||type==='tournament_winner'?185:260;g.gain.setValueAtTime(level,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.0001,ctx.currentTime+(type==='winner'?.22:.12));o.connect(g).connect(ctx.destination);o.start();o.stop(ctx.currentTime+(type==='winner'?.24:.13))}catch(_){}}
 const confettiColors=['#f1cb61','#fff0a8','#e45f56','#69c69a','#67aee8'];celebration.innerHTML=Array.from({length:34},(_,i)=>'<i class="confetti" style="--x:'+(3+(i*29)%94)+'%;--c:'+confettiColors[i%confettiColors.length]+';--d:'+(2.4+(i%7)*.18)+'s;--delay:'+((i%11)*.07)+'s"></i>').join('');
 function showWinner(event){const names=event.players||[];winnerTitle.textContent=event.split?'SPLIT POT':(names[0]||'PLAYER')+' WINS';winnerDetail.textContent=event.hand_detail||event.message||'The hand is complete.';winnerAmount.textContent=event.amount?Number(event.amount).toLocaleString()+' CHIPS AWARDED':'';winnerBanner.classList.add('show');celebration.classList.remove('show');requestAnimationFrame(()=>celebration.classList.add('show'));clearTimeout(winnerTimer);winnerTimer=setTimeout(()=>{winnerBanner.classList.remove('show');celebration.classList.remove('show');highlightedWinners.clear();if(lastState)render(lastState)},4600)}
 function animateEvent(event){const type=event.type,b=document.querySelector('.board'),fx=type==='pot_awarded'||type==='winner'?'winner':type==='community'?'community':type==='action'?'action':'';if(fx){b.classList.remove('fx-action','fx-community','fx-winner');requestAnimationFrame(()=>b.classList.add('fx-'+fx));setTimeout(()=>b.classList.remove('fx-'+fx),1900)}if(type==='pot_awarded'||type==='winner'){const ids=event.player_ids||event.players||[];highlightedWinners=new Set(ids);if(lastState)render(lastState)}if(type==='winner')showWinner(event)}
@@ -185,7 +191,7 @@ class QuietThreadingHTTPServer(ThreadingHTTPServer):
 
 
 class OverlayServer:
-    def __init__(self, game, host="127.0.0.1", port=8765, background="#071c13", accent="#e6b94a", font="Arial, sans-serif", layout="horizontal", reduced_motion=False, audio_enabled=False, disclaimer_enabled=True, music_dir="music", music_enabled=True):
+    def __init__(self, game, host="127.0.0.1", port=8765, background="#071c13", accent="#e6b94a", font="Arial, sans-serif", layout="horizontal", reduced_motion=False, audio_enabled=False, disclaimer_enabled=True, music_dir="music", music_enabled=True, sound_effects_dir="sound_effects"):
         self.game = game
         self.host = host
         self.port = port
@@ -199,6 +205,8 @@ class OverlayServer:
         self.music_dir = Path(music_dir)
         self.music_enabled = bool(music_enabled)
         self.music_tracks = self._discover_music_tracks()
+        self.sound_effects_dir = Path(sound_effects_dir)
+        self.sound_effects = self._discover_sound_effects()
         self._server = None
         self._thread = None
         self._closing = False
@@ -222,7 +230,8 @@ class OverlayServer:
                     audio_on = outer._query_enabled(query, "audio", outer.audio_enabled)
                     music_on = audio_on and outer._query_enabled(query, "music", outer.music_enabled and bool(outer.music_tracks))
                     music_tracks = [f"/music/{index}.wav" for index, _track in enumerate(outer.music_tracks)] if music_on else []
-                    page = (OVERLAY_HTML.replace("__BACKGROUND__", outer.background).replace("__ACCENT__", outer.accent).replace("__FONT__", outer.font).replace("__LAYOUT__", outer.layout).replace("__REDUCED__", "reduced" if outer.reduced_motion else "").replace("__AUDIO__", "audio-on" if audio_on else "").replace("__MUSIC__", "on" if music_on else "off").replace("__MUSIC_TRACKS__", json.dumps(music_tracks)).replace("__DISCLAIMER_CLASS__", "" if outer.disclaimer_enabled else "hidden"))
+                    effects = outer.sound_effect_urls() if audio_on else {}
+                    page = (OVERLAY_HTML.replace("__BACKGROUND__", outer.background).replace("__ACCENT__", outer.accent).replace("__FONT__", outer.font).replace("__LAYOUT__", outer.layout).replace("__REDUCED__", "reduced" if outer.reduced_motion else "").replace("__AUDIO__", "audio-on" if audio_on else "").replace("__MUSIC__", "on" if music_on else "off").replace("__MUSIC_TRACKS__", json.dumps(music_tracks)).replace("__SOUND_EFFECTS__", json.dumps(effects)).replace("__DISCLAIMER_CLASS__", "" if outer.disclaimer_enabled else "hidden"))
                     self._send(200, "text/html; charset=utf-8", page.encode("utf-8"))
                 elif path == "/health":
                     state = outer.game.state_snapshot()
@@ -231,6 +240,8 @@ class OverlayServer:
                     self._send_json(outer.stream_info())
                 elif path.startswith("/music/"):
                     self._send_music(path)
+                elif path.startswith("/sound/"):
+                    self._send_sound(path)
                 else:
                     self._send_json({"error": "not found"}, status=404)
 
@@ -289,7 +300,22 @@ class OverlayServer:
                 if index < 0 or index >= len(outer.music_tracks):
                     self._send_json({"error": "not found"}, status=404)
                     return
-                track = outer.music_tracks[index]
+                self._send_media_file(outer.music_tracks[index], "audio/wav")
+
+            def _send_sound(self, path):
+                match = re.fullmatch(r"/sound/([a-z0-9_]+)\.(mp3|wav|ogg)", path)
+                if not match:
+                    self._send_json({"error": "not found"}, status=404)
+                    return
+                key, extension = match.groups()
+                track = outer.sound_effects.get(key)
+                if not track or track.suffix.lower().lstrip(".") != extension:
+                    self._send_json({"error": "not found"}, status=404)
+                    return
+                content_type = {"mp3": "audio/mpeg", "wav": "audio/wav", "ogg": "audio/ogg"}.get(extension, "application/octet-stream")
+                self._send_media_file(track, content_type)
+
+            def _send_media_file(self, track, content_type):
                 try:
                     size = track.stat().st_size
                     start, end = 0, size - 1
@@ -314,7 +340,7 @@ class OverlayServer:
                         status = 206
                     length = end - start + 1
                     self.send_response(status)
-                    self.send_header("Content-Type", "audio/wav")
+                    self.send_header("Content-Type", content_type)
                     self.send_header("Content-Length", str(length))
                     self.send_header("Cache-Control", "no-store")
                     self.send_header("Accept-Ranges", "bytes")
@@ -370,6 +396,24 @@ class OverlayServer:
                 key=lambda path: path.name.lower(),
             )
         )
+
+    def _discover_sound_effects(self):
+        if not self.sound_effects_dir.exists() or not self.sound_effects_dir.is_dir():
+            return {}
+        effects = {}
+        for path in sorted(self.sound_effects_dir.iterdir(), key=lambda item: item.name.lower()):
+            if not path.is_file() or path.suffix.lower() not in {".mp3", ".wav", ".ogg"}:
+                continue
+            normalized = path.stem.lower().replace("-", "_").replace(" ", "_")
+            if "card" in normalized and "flip" in normalized:
+                effects["card_flip"] = path
+        return effects
+
+    def sound_effect_urls(self):
+        return {
+            key: f"/sound/{key}{path.suffix.lower()}"
+            for key, path in self.sound_effects.items()
+        }
 
     def stream_info(self):
         """Return copy-safe public metadata without cards, prompts, or local paths."""

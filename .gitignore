@@ -168,3 +168,4 @@ data/audio_cache/
 data/checkpoint.json
 data/hand_history.jsonl*
 ui-preview.png
+artifacts/

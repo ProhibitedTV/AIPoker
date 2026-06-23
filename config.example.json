@@ -53,6 +53,7 @@
   "music_path": "music",
   "music_volume": 0.18,
   "music_shuffle": true,
+  "sound_effects_path": "sound_effects",
   "voice_volume": 0.8,
   "audio_cache_path": "data/audio_cache",
   "tts_enabled": false,
