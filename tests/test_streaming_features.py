@@ -86,8 +86,16 @@ class StreamingFeatureTests(unittest.TestCase):
             self.assertEqual(state["schema_version"], 2)
             self.assertEqual(len(state["players"]), 2)
             self.assertEqual(state["health"]["overall"], "normal")
+            self.assertIn("program", state)
+            self.assertIn("league", state)
+            self.assertGreaterEqual(len(state["storylines"]), 3)
+            self.assertIn(state["players"][0]["id"], state["personality_arcs"])
             self.assertEqual(health["health"], state["health"])
             self.assertIn("AI Poker Overlay", html)
+            self.assertIn("DEALER STATION", html)
+            self.assertIn("deck-stack", html)
+            self.assertIn("broadcast-context", html)
+            self.assertIn("seat-label", html)
             self.assertIn('aria-live="polite"', html)
             self.assertIn('class="equity-meter"', html)
             self.assertIn("RECONNECTING", html)
@@ -113,8 +121,11 @@ class StreamingFeatureTests(unittest.TestCase):
             music_dir = Path(directory) / "music"
             music_dir.mkdir()
             write_tiny_wave(music_dir / "Casino Bed.wav")
+            sound_dir = Path(directory) / "sound_effects"
+            sound_dir.mkdir()
+            (sound_dir / "card_flip.mp3").write_bytes(b"ID3cardflip")
             game = PokerGame(2, decision_provider=lambda *_: "check")
-            server = OverlayServer(game, port=0, audio_enabled=True, music_dir=music_dir).start()
+            server = OverlayServer(game, port=0, audio_enabled=True, music_dir=music_dir, sound_effects_dir=sound_dir).start()
             try:
                 with urlopen(server.url, timeout=2) as response:
                     default_html = response.read().decode("utf-8")
@@ -128,13 +139,17 @@ class StreamingFeatureTests(unittest.TestCase):
                 )
                 with urlopen(request, timeout=2) as response:
                     ranged = response.read()
+                with urlopen(f"http://127.0.0.1:{server.port}/sound/card_flip.mp3", timeout=2) as response:
+                    flip_head = response.read(3)
 
                 self.assertIn("audio-on", default_html)
                 self.assertIn('data-music="on"', default_html)
                 self.assertIn('"/music/0.wav"', default_html)
+                self.assertIn('"/sound/card_flip.mp3"', default_html)
                 self.assertIn('data-music="off" class=" "', muted_html)
                 self.assertTrue(music_head.startswith(b"RIFF"))
                 self.assertEqual(ranged, b"RIFF")
+                self.assertEqual(flip_head, b"ID3")
             finally:
                 server.close()
 

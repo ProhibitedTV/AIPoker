@@ -10,6 +10,7 @@ import time
 from threading import Condition, RLock
 
 from analysis import EquityCalculator
+from broadcast_context import build_broadcast_context
 from deck import Deck
 from hand_evaluator import evaluate_hand
 from player import AIPlayer, PlayerProfile
@@ -1250,6 +1251,24 @@ class PokerGame:
                 )
             level = max(1, (max(1, self.tournament_hand_number) - 1) // self.hands_per_level + 1)
             hands_into_level = (max(1, self.tournament_hand_number) - 1) % self.hands_per_level
+            tournament_info = {
+                "number": self.tournament_number,
+                "hand": self.tournament_hand_number,
+                "level": level,
+                "hands_remaining": self.hands_per_level - hands_into_level,
+                "complete": self.tournament_complete,
+                "winner": self.tournament_winner,
+                "eliminations": list(self.eliminations),
+            } if self.mode == "tournament" else None
+            broadcast_context = build_broadcast_context(
+                metrics=leaderboard,
+                players=players,
+                mode=self.mode,
+                tournament=tournament_info,
+                action_history=list(self.action_history)[-20:],
+                hand_number=self.hand_number,
+                stage=self.stage,
+            )
             return {
                 "schema_version": 2,
                 "event_sequence": self._event_sequence,
@@ -1268,16 +1287,12 @@ class PokerGame:
                 "action_history": list(self.action_history)[-20:],
                 "commentary": list(self.commentary),
                 "leaderboard": leaderboard,
+                "program": broadcast_context["program"],
+                "league": broadcast_context["league"],
+                "storylines": broadcast_context["storylines"],
+                "personality_arcs": broadcast_context["personality_arcs"],
                 "analysis": {"pending": analysis_pending, "method": "exact-postflop/bounded-monte-carlo-preflop"},
-                "tournament": {
-                    "number": self.tournament_number,
-                    "hand": self.tournament_hand_number,
-                    "level": level,
-                    "hands_remaining": self.hands_per_level - hands_into_level,
-                    "complete": self.tournament_complete,
-                    "winner": self.tournament_winner,
-                    "eliminations": list(self.eliminations),
-                } if self.mode == "tournament" else None,
+                "tournament": tournament_info,
                 "services": dict(self.service_health),
                 "health": self.health_snapshot(),
                 "audio": dict(self.audio_state),

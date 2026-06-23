@@ -132,6 +132,7 @@ def main(argv=None):
         music_dir=settings.music_path,
         music_volume=settings.music_volume,
         music_shuffle=settings.music_shuffle,
+        sound_effects_dir=settings.sound_effects_path,
     )
     commentary.on_speaking = audio.set_voice_active
     game.audio_state = {
@@ -145,6 +146,7 @@ def main(argv=None):
         "music": settings.music_volume,
         "music_enabled": audio.music_enabled and bool(audio.music_tracks),
         "music_tracks": len(audio.music_tracks),
+        "sound_effects": sorted(audio.sound_effects),
         "voice": settings.voice_volume,
     }
     game.subscribe(audio.handle_event)
@@ -163,6 +165,7 @@ def main(argv=None):
             disclaimer_enabled=settings.overlay_disclaimer_enabled,
             music_dir=settings.music_path,
             music_enabled=settings.music_enabled,
+            sound_effects_dir=settings.sound_effects_path,
         ).start()
         game.service_health["overlay"] = "online"
         print(f"Streaming overlay: {overlay.url}")

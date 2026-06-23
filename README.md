@@ -12,6 +12,7 @@ The engine is designed to be auditable and recoverable for 24/7 operation. It en
 - Cash mode with fixed stakes and zero-stack reloads, plus escalating hand-count sit-and-go tournaments with big-blind antes and automatic restarts
 - Spectator-visible hole cards and live equity, while each Ollama prompt receives only that player's private cards and public table information
 - Persistent schema-v2 statistics: VPIP, PFR, three-bets, aggression, showdown results, all-ins, tournament finishes, notable hands, and chip history
+- League/program/story/personality state for autonomous sports-channel context without requiring Ollama
 - Atomic hand-boundary checkpoints, rotating replayable JSONL hand histories, bounded queues, and legal fallback play during Ollama outages
 - 1920×1080 OBS scene, compact overlay, SSE event feed, layered original audio, optional TTS, reduced motion, and offline preview tools
 
@@ -43,23 +44,26 @@ Copy `config.example.json` to `config.json` to select per-seat Ollama models, ga
 
 The full browser source is `http://127.0.0.1:8765/overlay`. Configure OBS at **1920×1080** with the same frame rate as the stream. Use `?compact=1` for the compact panel. The server binds only to localhost unless configured otherwise.
 
-For Twitch-ready title, description, panel copy, moderation notes, audio capture, VOD guidance, and a preflight checklist, use the [Twitch Broadcast Guide](docs/TWITCH_BROADCAST_GUIDE.md). Copy-safe live metadata is also available from `http://127.0.0.1:8765/stream-info`. The subtle simulation-only overlay label is enabled by default and can be disabled with `overlay_disclaimer_enabled: false` or `--no-simulation-disclaimer` for private previews.
+For Twitch-ready title, description, panel copy, moderation notes, audio capture, VOD guidance, and a preflight checklist, use the [Twitch Broadcast Guide](docs/TWITCH_BROADCAST_GUIDE.md). For unattended operation, use the [24/7 Operator Runbook](docs/OPERATOR_RUNBOOK.md). Copy-safe live metadata is also available from `http://127.0.0.1:8765/stream-info`. The subtle simulation-only overlay label is enabled by default and can be disabled with `overlay_disclaimer_enabled: false` or `--no-simulation-disclaimer` for private previews.
 
 The header health badge summarizes normal play, safe model fallback, checkpoint recovery, muted audio, persistence warnings, and SSE reconnection without exposing errors or local details. Preview these states with `--health-state normal`, `degraded`, `recovered`, `persistence-warning`, or `audio-muted`; the same sanitized health object is available in `/state` and `/health`.
 
-- `/state` publishes backward-compatible state plus the version-2 player, pot, tournament, analysis, audio, and health schema.
+- `/state` publishes backward-compatible state plus the version-2 player, pot, tournament, analysis, audio, health, program, league, storyline, and personality-arc schema.
 - `/events` is a reconnectable server-sent event stream with monotonic IDs for animation and custom integrations.
 - `/health` provides a minimal service probe.
 
 The OBS browser source now carries table cues and the casino music bed by default, so OBS's **Control audio via OBS** option can mix the `AI Poker` source directly. Use `?audio=0`, `?music=0`, or `overlay_audio_enabled: false` if you instead capture the desktop app through OBS Application Audio Capture and want to prevent doubled sound. Master, ambience, effects, music, and voice levels are separate, and nonessential sound is ducked around speech.
 
-Stream-safe WAV tracks placed in `music/` play as a shuffled casino music bed by default in both the desktop mixer and the OBS browser source. Use `music_enabled`, `music_path`, `music_volume`, and `music_shuffle` in config, or launch with `--no-music`, `--music-path`, and `--music-volume`, to tune the playlist without changing the Foley or voice mix.
+Stream-safe WAV tracks placed in `music/` play as a shuffled casino music bed by default in both the desktop mixer and the OBS browser source. Short samples in `sound_effects/` add tactile broadcast Foley; `card_flip.mp3` is served to the OBS browser source for card/deck reveals, and a matching `card_flip.wav` can override generated desktop card Foley. Use `music_enabled`, `music_path`, `music_volume`, `music_shuffle`, and `sound_effects_path` in config, or launch with `--no-music`, `--music-path`, and `--music-volume`, to tune the playlist without changing the Foley or voice mix.
 
-Preview the real overlay without Ollama:
+Preview and inspect the real broadcast without Ollama:
 
 ```bash
 python scripts/preview_overlay.py
 python scripts/preview_gui.py ui-preview.png
+python scripts/broadcast_smoke.py
+python scripts/replay_hand.py --list
+python scripts/benchmark_models.py --fixture
 ```
 
 ### Human-readable broadcast pacing
@@ -70,7 +74,7 @@ Only newly dealt cards flip, only changed wagers slide chips forward, and winner
 
 ### Audience-first spectator design
 
-The OBS scene explains each street in plain English, expands dealer and blind abbreviations, identifies the acting player, describes the immediate choice, and labels equity as “chance to win.” A five-step hand tracker, chip-leader marker, big-pot and all-in tension cues, newcomer-friendly statistics, winner takeover, and restrained celebration animation keep the story legible even for viewers who have never played poker. These layers are event-driven, so idle polling never replays a card, chip, action, or award animation.
+The OBS scene uses a seated casino-table layout for 2–6 players, with a dealer/deck tray, visible pot chips, per-seat stack chips, committed wager chips, and a bottom sports ticker for action, program segment, league context, and rotating story beats. It explains each street in plain English, expands dealer and blind abbreviations, identifies the acting player, describes the immediate choice, and labels equity as “chance to win.” A five-step hand tracker, chip-leader marker, big-pot and all-in tension cues, newcomer-friendly statistics, winner takeover, and restrained celebration animation keep the story legible even for viewers who have never played poker. These layers are event-driven, so idle polling never replays a card, chip, action, or award animation.
 
 ## Rules and house policy
 
@@ -87,9 +91,13 @@ pytest -m "not slow"
 pytest -m slow tests/test_hand_evaluator_exhaustive.py
 python scripts/soak_test.py --hands 10000 --players 6
 python scripts/soak_test.py --hands 2000 --players 4 --mode tournament
+python scripts/broadcast_smoke.py
+python scripts/benchmark_models.py --fixture
 ```
 
-The release gate covers legal-action tables, heads-up transitions, minimum raises, cumulative short all-ins, uncalled excess, folded dead money, independent side-pot winners, split/odd chips, burn/deck invariants, prompt privacy, malformed model output, metrics migration, checkpoints, SSE replay, 1080p/compact layouts, and a deterministic 10,000-hand chip-conservation soak. The slow evaluator proof checks all 2,598,960 five-card combinations against canonical category frequencies.
+The release gate covers legal-action tables, heads-up transitions, minimum raises, cumulative short all-ins, uncalled excess, folded dead money, independent side-pot winners, split/odd chips, burn/deck invariants, prompt privacy, malformed model output, metrics migration, checkpoints, SSE replay, 1080p/compact layouts, broadcast smoke artifacts, local model calibration, replay inspection, and a deterministic 10,000-hand chip-conservation soak. The slow evaluator proof checks all 2,598,960 five-card combinations against canonical category frequencies.
+
+The longer product direction is documented in the [AI Poker Network Roadmap](docs/AI_SPORTS_NETWORK_ROADMAP.md).
 
 ## Main components
 
@@ -98,8 +106,9 @@ The release gate covers legal-action tables, heads-up transitions, minimum raise
 - `ollama_integration.py` — cached model discovery, strict private JSON decisions, validation, and fallback
 - `analysis.py` — bounded asynchronous spectator equity
 - `metrics.py` — atomic schema-v2 season and tournament records
+- `broadcast_context.py` — deterministic program, league, storyline, and character arc snapshots
 - `gui.py` — non-blocking Qt broadcast control room
 - `overlay_server.py` — OBS page, state API, SSE events, and health probe
-- `audio.py` / `commentary.py` — generated effects, ambience, shuffled music bed, ducking, and optional speech
+- `audio.py` / `commentary.py` — generated/custom effects, ambience, shuffled music bed, ducking, and optional speech
 
 Season data, checkpoints, hand histories, and generated audio are written beneath `data/` by default. Resetting season statistics does not delete replay histories or checkpoints.
