@@ -30,12 +30,36 @@ The same safe metadata is available locally at `http://127.0.0.1:8765/stream-inf
 
 The simulation disclaimer is enabled by default. Set `overlay_disclaimer_enabled` to `false` in private configurations or launch with `--no-simulation-disclaimer` to hide it.
 
+## Broadcast health badge
+
+The header badge gives viewers a calm summary while `/state` and `/health` expose the same sanitized fields for operators:
+
+- **TABLE HEALTHY** — local broadcast systems are ready.
+- **SAFE FALLBACK** — Ollama is unavailable or cooling down; deterministic legal play continues.
+- **RECOVERED** — the last complete checkpoint was restored after restart.
+- **AUDIO MUTED** — visuals and gameplay remain live without sound.
+- **SAVE WARNING** — hand history or checkpoint persistence needs operator attention.
+- **RECONNECTING** — the browser source is catching up to the event feed.
+
+No badge or health payload contains prompts, exception text, local paths, or private card data. Exercise fixtures without Ollama before changing an OBS scene:
+
+```bash
+python scripts/preview_overlay.py --port 8771 --health-state normal
+python scripts/preview_overlay.py --port 8772 --health-state degraded
+python scripts/preview_overlay.py --port 8773 --health-state recovered
+python scripts/preview_overlay.py --port 8774 --health-state persistence-warning
+python scripts/preview_overlay.py --port 8775 --health-state audio-muted
+```
+
 ## Audio capture
 
-- Capture desktop Foley, ambience, and voices with OBS Application Audio Capture.
-- Leave `overlay_audio_enabled` off when desktop audio is already captured to prevent doubled cues.
+- For the simplest OBS setup, enable **Control audio via OBS** on the Browser Source and let `http://127.0.0.1:8765/overlay` carry table cues plus the casino music bed.
+- Use `?audio=0`, `?music=0`, or `overlay_audio_enabled: false` only when desktop Foley, casino music, ambience, and voices are captured separately through OBS Application Audio Capture.
+- The default playlist scans `music/` for WAV tracks, shuffles them, scales desktop playback into the audio cache at `music_volume`, and serves the same tracks to the browser source.
+- Use `--no-music` for silent test streams or `--music-volume 0.12` to tuck the bed farther under table action.
 - Keep voices above ambience and verify the limiter does not pump during winner stingers.
-- Run a private recording before launch and listen for missing, doubled, or clipped audio.
+- Review custom tracks for stream rights before going live; user-supplied music is outside the built-in generated-safe Foley/ambience set.
+- Run a private recording before launch and listen for missing, doubled, or clipped audio. If OBS meters are silent, refresh the browser source and confirm the source URL is not using `?audio=0`.
 
 ## Chat, VODs, and clips
 
@@ -44,16 +68,16 @@ The simulation disclaimer is enabled by default. Set `overlay_disclaimer_enabled
 - Do not solicit wagers, financial information, or off-platform transactions.
 - Give moderators the copy-ready disclaimer above and a short escalation path.
 - Keep the simulation tag visible in clips; include “simulation” or “AI league” in clip titles when context could be lost.
-- Review VOD audio for copyrighted material; the built-in generated effects and ambience are the safest defaults.
+- Review VOD audio for copyrighted material; the built-in generated effects and ambience are the safest defaults, while `music/` contains operator-supplied tracks.
 
 ## Before going live
 
-- [ ] `/health`, `/state`, `/events`, `/stream-info`, and `/overlay` respond locally.
+- [ ] `/health`, `/state`, `/events`, `/stream-info`, and `/overlay` respond locally and the health badge matches the fixture or live service state.
 - [ ] OBS canvas and output are 1920×1080 with no safe-area clipping.
 - [ ] The title, description, panel, and category clearly frame the stream as fictional AI entertainment.
 - [ ] The overlay simulation disclaimer is visible.
 - [ ] Ollama health or deterministic fallback status is visible and play continues during a model outage.
-- [ ] Cards, chips, voices, ambience, and winner cues are readable without doubling.
+- [ ] Cards, chips, music, voices, ambience, and winner cues are readable without doubling.
 - [ ] Continuous play, checkpoint persistence, and disk-space monitoring are enabled.
 - [ ] Moderators have the disclaimer and know there are no real-world stakes or prizes.
 - [ ] A short local recording has been reviewed before publishing the live scene.

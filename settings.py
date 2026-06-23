@@ -60,7 +60,7 @@ class AppSettings:
     overlay_accent: str = "#e6b94a"
     overlay_font: str = "Inter, Segoe UI, Arial, sans-serif"
     overlay_layout: str = "horizontal"
-    overlay_audio_enabled: bool = False
+    overlay_audio_enabled: bool = True
     overlay_disclaimer_enabled: bool = True
     tts_enabled: bool = False
     tts_volume: float = 0.8
@@ -71,6 +71,10 @@ class AppSettings:
     ambience_enabled: bool = True
     ambience_volume: float = 0.16
     effects_volume: float = 0.72
+    music_enabled: bool = True
+    music_path: str = "music"
+    music_volume: float = 0.18
+    music_shuffle: bool = True
     voice_volume: float = 0.8
     audio_cache_path: str = "data/audio_cache"
     stats_path: str = "data/leaderboard.json"

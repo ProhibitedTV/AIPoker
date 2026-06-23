@@ -145,8 +145,22 @@ class PokerGame:
         self.action_delay_ms = max(0, int(action_delay_ms))
         self.deal_delay_ms = max(0, int(deal_delay_ms))
         self._sleep = sleep_provider or time.sleep
-        self.service_health = {"ollama": "unknown", "overlay": "unknown"}
-        self.audio_state = {"enabled": True, "master": 0.35}
+        self.service_health = {
+            "ollama": "unknown",
+            "overlay": "unknown",
+            "persistence": "ready" if self.history_path or self.checkpoint_path else "disabled",
+            "checkpoint": "standby" if self.checkpoint_path else "disabled",
+        }
+        self.audio_state = {
+            "enabled": True,
+            "master": 0.35,
+            "ambience_enabled": True,
+            "ambience": 0.16,
+            "effects": 0.72,
+            "music_enabled": True,
+            "music": 0.18,
+            "music_tracks": 0,
+        }
 
         if metrics_store:
             for player in self.players:
@@ -993,17 +1007,21 @@ class PokerGame:
     def _persist_hand_history(self, summary):
         if not self.history_path:
             return
-        self.history_path.parent.mkdir(parents=True, exist_ok=True)
-        if self.history_path.exists() and self.history_path.stat().st_size > 5_000_000:
-            for index in range(2, 0, -1):
-                source = self.history_path.with_suffix(self.history_path.suffix + f".{index}")
-                target = self.history_path.with_suffix(self.history_path.suffix + f".{index + 1}")
-                if source.exists():
-                    os.replace(source, target)
-            os.replace(self.history_path, self.history_path.with_suffix(self.history_path.suffix + ".1"))
-        document = {"summary": summary, "events": self._hand_events}
-        with self.history_path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(document, separators=(",", ":")) + "\n")
+        try:
+            self.history_path.parent.mkdir(parents=True, exist_ok=True)
+            if self.history_path.exists() and self.history_path.stat().st_size > 5_000_000:
+                for index in range(2, 0, -1):
+                    source = self.history_path.with_suffix(self.history_path.suffix + f".{index}")
+                    target = self.history_path.with_suffix(self.history_path.suffix + f".{index + 1}")
+                    if source.exists():
+                        os.replace(source, target)
+                os.replace(self.history_path, self.history_path.with_suffix(self.history_path.suffix + ".1"))
+            document = {"summary": summary, "events": self._hand_events}
+            with self.history_path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(document, separators=(",", ":")) + "\n")
+            self.service_health["persistence"] = "ready"
+        except OSError:
+            self.service_health["persistence"] = "warning"
 
     def save_checkpoint(self):
         if not self.checkpoint_path:
@@ -1020,10 +1038,15 @@ class PokerGame:
             "eliminations": self.eliminations,
             "players": [{"id": player.id, "chips": player.chips, "eliminated": player.eliminated} for player in self.players],
         }
-        self.checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = self.checkpoint_path.with_suffix(self.checkpoint_path.suffix + ".tmp")
-        temporary.write_text(json.dumps(document, indent=2), encoding="utf-8")
-        os.replace(temporary, self.checkpoint_path)
+        try:
+            self.checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+            temporary = self.checkpoint_path.with_suffix(self.checkpoint_path.suffix + ".tmp")
+            temporary.write_text(json.dumps(document, indent=2), encoding="utf-8")
+            os.replace(temporary, self.checkpoint_path)
+            self.service_health["checkpoint"] = "ready"
+        except OSError:
+            self.service_health["checkpoint"] = "warning"
+            self.service_health["persistence"] = "warning"
 
     def restore_checkpoint(self):
         if not self.checkpoint_path or not self.checkpoint_path.exists():
@@ -1048,9 +1071,40 @@ class PokerGame:
                 player.is_active = player.chips > 0 and not player.eliminated
             self._apply_tournament_level() if self.mode == "tournament" else None
             self.stage = "Restored"
+            self.service_health["checkpoint"] = "restored"
             return True
         except (OSError, ValueError, TypeError, json.JSONDecodeError, KeyError):
+            self.service_health["checkpoint"] = "warning"
             return False
+
+    def health_snapshot(self):
+        """Return short, viewer-safe service states without errors or local details."""
+        ollama = self.service_health.get("ollama", "unknown")
+        persistence = self.service_health.get("persistence", "disabled")
+        checkpoint = self.service_health.get("checkpoint", "disabled")
+        audio_enabled = bool(self.audio_state.get("enabled", True))
+        if persistence == "warning" or checkpoint == "warning":
+            overall, label, detail = "warning", "SAVE WARNING", "Operator check recommended"
+        elif ollama in {"fallback", "circuit-open", "offline", "unavailable"}:
+            overall, label, detail = "degraded", "SAFE FALLBACK", "Play continues without local AI"
+        elif checkpoint == "restored":
+            overall, label, detail = "recovered", "RECOVERED", "Checkpoint restored"
+        elif not audio_enabled:
+            overall, label, detail = "notice", "AUDIO MUTED", "Game remains live"
+        else:
+            overall, label, detail = "normal", "TABLE HEALTHY", "Local broadcast systems ready"
+        return {
+            "overall": overall,
+            "label": label,
+            "detail": detail,
+            "components": {
+                "model": "online" if ollama in {"online", "preview"} else ("fallback" if ollama in {"fallback", "circuit-open", "offline", "unavailable"} else "warming"),
+                "overlay": self.service_health.get("overlay", "unknown"),
+                "audio": "ready" if audio_enabled else "muted",
+                "persistence": persistence,
+                "checkpoint": checkpoint,
+            },
+        }
 
     def recover_from_error(self, error):
         with self._lock:
@@ -1225,6 +1279,7 @@ class PokerGame:
                     "eliminations": list(self.eliminations),
                 } if self.mode == "tournament" else None,
                 "services": dict(self.service_health),
+                "health": self.health_snapshot(),
                 "audio": dict(self.audio_state),
             }
 

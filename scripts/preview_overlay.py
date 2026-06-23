@@ -89,10 +89,26 @@ def parse_args(argv=None):
     parser.add_argument("--action-delay", type=float, default=1.15)
     parser.add_argument("--deal-delay", type=float, default=0.28)
     parser.add_argument("--seed", type=int, default=20260622)
-    parser.add_argument("--audio", action="store_true", help="Enable browser-source cue audio")
+    parser.add_argument("--audio", action="store_true", help="Enable browser-source cue and music audio")
     parser.add_argument("--reduced-motion", action="store_true")
     parser.add_argument("--no-simulation-disclaimer", action="store_true")
+    parser.add_argument(
+        "--health-state",
+        choices=("normal", "degraded", "recovered", "persistence-warning", "audio-muted"),
+        default="normal",
+        help="Render a viewer-safe broadcast health fixture without Ollama",
+    )
     return parser.parse_args(argv)
+
+
+def apply_health_fixture(game, state):
+    game.service_health["ollama"] = "fallback" if state == "degraded" else "preview"
+    if state == "recovered":
+        game.service_health["checkpoint"] = "restored"
+    elif state == "persistence-warning":
+        game.service_health["persistence"] = "warning"
+    if state == "audio-muted":
+        game.audio_state["enabled"] = False
 
 
 def main(argv=None):
@@ -112,7 +128,7 @@ def main(argv=None):
         action_delay_ms=round(max(0.0, args.action_delay) * 1000),
         deal_delay_ms=round(max(0.0, args.deal_delay) * 1000),
     )
-    game.service_health["ollama"] = "preview"
+    apply_health_fixture(game, args.health_state)
     server = OverlayServer(
         game,
         host=args.host,

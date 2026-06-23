@@ -2,6 +2,7 @@
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+from pathlib import Path
 from threading import BoundedSemaphore, Thread
 import sys
 import time
@@ -41,6 +42,7 @@ body{padding:24px;background:radial-gradient(circle at 50% 48%,#07150f 0,#010503
 .brand,.metric,.storybar,.player,.ticker{backdrop-filter:blur(12px);border:1px solid #ffffff17;background:linear-gradient(165deg,#0a211adf,#020906ed);box-shadow:0 10px 24px #0006,inset 0 1px #ffffff08}
 .brand{position:relative;overflow:hidden;padding:9px 17px;border-radius:12px}
 .brand:after{content:'AUTONOMOUS AI LEAGUE';position:absolute;right:15px;bottom:9px;color:#8ca99e;font-size:8px;font-weight:900;letter-spacing:.16em}.simulation-tag{position:absolute;right:15px;top:9px;color:#e6ca70;font-size:7px;font-weight:950;letter-spacing:.1em}.simulation-tag.hidden{display:none}
+.health-pill{position:absolute;right:13px;top:23px;display:flex;align-items:center;gap:6px;max-width:190px;padding:3px 7px;border:1px solid #6bd49a44;border-radius:9px;background:#0b2b20d9;color:#bce8d0;text-shadow:none}.health-dot{width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:#65d694;box-shadow:0 0 9px #65d694}.health-copy{display:flex;align-items:baseline;gap:5px;min-width:0}.health-copy strong{font-size:7px;letter-spacing:.08em;white-space:nowrap}.health-copy small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#86ad9d;font-size:6px}.health-pill.degraded{border-color:#efc65b66;background:#382a0ed9;color:#ffe29a}.health-pill.degraded .health-dot{background:#f0c252;box-shadow:0 0 10px #f0c252}.health-pill.warning,.health-pill.disconnected{border-color:#ed6d5f77;background:#401713e8;color:#ffd0c8}.health-pill.warning .health-dot,.health-pill.disconnected .health-dot{background:#ec6557;box-shadow:0 0 11px #ec6557}.health-pill.recovered,.health-pill.notice{border-color:#72b7ea66;background:#102c41d9;color:#cfeaff}.health-pill.recovered .health-dot,.health-pill.notice .health-dot{background:#72b7ea;box-shadow:0 0 10px #72b7ea}.health-pill:not(.normal) .health-dot{animation:tensionPulse 1.8s ease-in-out infinite}.compact .health-copy small{display:none}
 .logo{font-size:24px;letter-spacing:.17em;background:linear-gradient(180deg,#ffe99b,#c99734);-webkit-background-clip:text;color:transparent;filter:drop-shadow(0 2px 8px #f0c85b33)}
 .live{font-size:9px}.metric{position:relative;display:flex;flex-direction:column;justify-content:center;padding:7px 10px;border-radius:10px;overflow:hidden}.metric small{font-size:8px}.metric strong{font-size:19px}.metric.emphasis{border-color:#dbbc6266;background:linear-gradient(160deg,#1b2818e8,#080c08ed)}.metric.emphasis strong{color:#f7d675}.metric.bump strong{animation:numberBump .5s cubic-bezier(.2,.8,.2,1)}.metric-sub{height:11px;margin-top:1px;color:#78978a;font-size:8px;font-weight:800;letter-spacing:.05em;white-space:nowrap}
 .storybar{display:grid;grid-template-columns:auto minmax(280px,1.15fr) minmax(360px,1fr);align-items:center;gap:14px;min-height:52px;padding:7px 12px;border-radius:12px;border-color:#d4b95b33;background:linear-gradient(90deg,#071712f2,#10281feb 52%,#07120ff2)}
@@ -69,9 +71,9 @@ body{padding:24px;background:radial-gradient(circle at 50% 48%,#07150f 0,#010503
 @keyframes confettiFall{0%{opacity:0;transform:translateY(-30px) rotate(0)}8%{opacity:1}100%{opacity:0;transform:translateY(780px) rotate(720deg)}}
 @media(max-width:1100px){.storybar{grid-template-columns:auto 1fr}.street-progress{display:none}.players{grid-template-columns:repeat(2,1fr)}.header{grid-template-columns:1.4fr repeat(3,1fr)}.header .optional{display:none}}
 </style></head>
-<body data-connected="false" class="__REDUCED__ __AUDIO__">
+<body data-connected="false" data-music="__MUSIC__" class="__REDUCED__ __AUDIO__">
 <main class="board layout-__LAYOUT__">
- <header class="header"><div class="brand"><div class="logo">AI POKER</div><div class="live" id="connection">RECONNECTING</div><div class="simulation-tag __DISCLAIMER_CLASS__">SIMULATION ONLY · FICTIONAL CHIPS · NO REAL MONEY</div></div>
+ <header class="header"><div class="brand"><div class="logo">AI POKER</div><div class="live" id="connection">RECONNECTING</div><div class="simulation-tag __DISCLAIMER_CLASS__">SIMULATION ONLY · FICTIONAL CHIPS · NO REAL MONEY</div><div class="health-pill normal" id="healthPill"><i class="health-dot"></i><span class="health-copy"><strong id="healthLabel">TABLE HEALTHY</strong><small id="healthDetail">Broadcast systems ready</small></span></div></div>
   <div class="metric"><small>HAND</small><strong id="hand">0</strong><span class="metric-sub">CURRENT DEAL</span></div>
   <div class="metric emphasis" id="potMetric"><small>TOTAL POT</small><strong id="pot">0</strong><span class="metric-sub">CHIPS TO WIN</span></div>
   <div class="metric"><small>BLINDS</small><strong id="blinds">0 / 0</strong><span class="metric-sub">FORCED OPENERS</span></div>
@@ -88,7 +90,7 @@ body{padding:24px;background:radial-gradient(circle at 50% 48%,#07150f 0,#010503
  <div class="celebration" id="celebration" aria-hidden="true"></div>
 </main>
 <script>
-const suits={hearts:'&hearts;',diamonds:'&diams;',clubs:'&clubs;',spades:'&spades;'},ranks={11:'J',12:'Q',13:'K',14:'A'};
+const suits={hearts:'&hearts;',diamonds:'&diams;',clubs:'&clubs;',spades:'&spades;'},ranks={11:'J',12:'Q',13:'K',14:'A'},musicTracks=__MUSIC_TRACKS__;
 const q=new URLSearchParams(location.search);document.body.classList.toggle('compact',q.get('compact')==='1');
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const stageOrder=['pre-flop','flop','turn','river','showdown'];
@@ -127,9 +129,17 @@ function storyFor(s,actor){
  return [`${actor.name} can check`,'Checking costs nothing and passes the decision to the next player.'];
 }
 function updateProgress(stageName){const current=Math.max(0,stageOrder.indexOf(stageName.toLowerCase()));streetProgress.querySelectorAll('.step').forEach((step,index)=>{step.classList.toggle('done',index<current);step.classList.toggle('current',index===current)})}
+function updateHealth(s){const h=s.health||{},state=h.overall||'normal';healthPill.className=`health-pill ${state}`;healthLabel.textContent=h.label||'TABLE HEALTHY';healthDetail.textContent=h.detail||'Broadcast systems ready';healthPill.title=Object.entries(h.components||{}).map(([key,value])=>`${key}: ${value}`).join(' · ')}
+function audioMix(){const a=lastState?.audio||{};return{master:Math.max(0,Math.min(1,Number(a.master??.45))),effects:Math.max(0,Math.min(1,Number(a.effects??.72))),music:Math.max(0,Math.min(1,Number(a.music??.18))),musicOn:a.music_enabled!==false}}
+let musicPlayer=null,musicIndex=0,musicBlocked=false;
+function nextMusicTrack(){if(!musicTracks.length)return null;const track=musicTracks[musicIndex%musicTracks.length];musicIndex+=1;return track}
+function updateMusicVolume(){if(!musicPlayer)return;const mix=audioMix();musicPlayer.volume=Math.max(0,Math.min(.55,mix.master*mix.music))}
+function startMusic(){if(!document.body.classList.contains('audio-on')||document.body.dataset.music!=='on'||!musicTracks.length)return;const mix=audioMix();if(!mix.musicOn||mix.master<=0||mix.music<=0)return;if(musicPlayer&&!musicPlayer.paused){updateMusicVolume();return}const track=nextMusicTrack();if(!track)return;musicPlayer=new Audio(track);musicPlayer.preload='auto';musicPlayer.onended=()=>{musicPlayer=null;setTimeout(startMusic,350)};musicPlayer.onerror=()=>{musicPlayer=null;setTimeout(startMusic,1500)};updateMusicVolume();musicPlayer.play().then(()=>{musicBlocked=false}).catch(()=>{musicBlocked=true})}
+function unlockAudio(){try{const C=window.AudioContext||window.webkitAudioContext,ctx=window.__ctx||(window.__ctx=new C());if(ctx.state==='suspended')ctx.resume()}catch(_){}startMusic()}
 function render(s){
  document.body.dataset.seats=s.players.length;document.body.classList.toggle('seats-many',s.players.length>4);players.style.setProperty('--seat-count',s.players.length);
  connection.textContent=s.services?.ollama==='online'?'LOCAL LIVE · OLLAMA':s.services?.ollama==='preview'?'LOCAL LIVE · DEMO':s.services?.ollama==='unknown'?'LOCAL LIVE':'LOCAL LIVE · MODEL FALLBACK';
+ updateHealth(s);
  hand.textContent=Number(s.hand_number).toLocaleString();stage.textContent=s.stage;stageHelp.textContent=stageHelpCopy[s.stage.toLowerCase()]||'The table is preparing the next hand.';
  const livePot=Number(s.pot||0);pot.textContent=livePot.toLocaleString();if(lastPot>=0&&livePot!==lastPot){potMetric.classList.remove('bump');requestAnimationFrame(()=>potMetric.classList.add('bump'));setTimeout(()=>potMetric.classList.remove('bump'),600)}lastPot=livePot;
  blinds.textContent=`${s.blinds.small} / ${s.blinds.big}${s.blinds.ante?' + '+s.blinds.ante:''}`;mode.textContent=s.mode==='tournament'?'SIT & GO':'CASH GAME';level.textContent=s.tournament?`LEVEL ${s.tournament.level} · ${s.tournament.hands_remaining} HANDS LEFT`:'FIXED 10 / 20 STAKES';
@@ -152,12 +162,14 @@ function render(s){
  }).join('');
  const feed=s.commentary||[],latest=feed.at(-1)||'Table ready';commentary.textContent=latest;if(latest!==lastCommentary){commentary.classList.remove('fresh');requestAnimationFrame(()=>commentary.classList.add('fresh'));lastCommentary=latest}
  history.textContent=(s.action_history||[]).slice(-3).map(a=>`${s.players[a.seat]?.name||''} ${plainAction(a.action)}${a.amount?' '+Number(a.amount).toLocaleString():''}`).join('  ·  ')
+ updateMusicVolume();startMusic();
 }
-function cue(type){if(!document.body.classList.contains('audio-on'))return;try{const C=window.AudioContext||window.webkitAudioContext,ctx=window.__ctx||(window.__ctx=new C()),o=ctx.createOscillator(),g=ctx.createGain();o.frequency.value=type==='winner'?740:type==='community'?440:260;g.gain.setValueAtTime(.025,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.0001,ctx.currentTime+.12);o.connect(g).connect(ctx.destination);o.start();o.stop(ctx.currentTime+.13)}catch(_){}}
+function cue(type){if(!document.body.classList.contains('audio-on'))return;try{const C=window.AudioContext||window.webkitAudioContext,ctx=window.__ctx||(window.__ctx=new C()),o=ctx.createOscillator(),g=ctx.createGain(),mix=audioMix(),level=Math.max(.006,Math.min(.055,.04*mix.master*mix.effects));if(ctx.state==='suspended')ctx.resume();o.frequency.value=type==='winner'?740:type==='community'?440:type==='all_in'||type==='tournament_winner'?185:260;g.gain.setValueAtTime(level,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.0001,ctx.currentTime+(type==='winner'?.22:.12));o.connect(g).connect(ctx.destination);o.start();o.stop(ctx.currentTime+(type==='winner'?.24:.13))}catch(_){}}
 const confettiColors=['#f1cb61','#fff0a8','#e45f56','#69c69a','#67aee8'];celebration.innerHTML=Array.from({length:34},(_,i)=>'<i class="confetti" style="--x:'+(3+(i*29)%94)+'%;--c:'+confettiColors[i%confettiColors.length]+';--d:'+(2.4+(i%7)*.18)+'s;--delay:'+((i%11)*.07)+'s"></i>').join('');
 function showWinner(event){const names=event.players||[];winnerTitle.textContent=event.split?'SPLIT POT':(names[0]||'PLAYER')+' WINS';winnerDetail.textContent=event.hand_detail||event.message||'The hand is complete.';winnerAmount.textContent=event.amount?Number(event.amount).toLocaleString()+' CHIPS AWARDED':'';winnerBanner.classList.add('show');celebration.classList.remove('show');requestAnimationFrame(()=>celebration.classList.add('show'));clearTimeout(winnerTimer);winnerTimer=setTimeout(()=>{winnerBanner.classList.remove('show');celebration.classList.remove('show');highlightedWinners.clear();if(lastState)render(lastState)},4600)}
 function animateEvent(event){const type=event.type,b=document.querySelector('.board'),fx=type==='pot_awarded'||type==='winner'?'winner':type==='community'?'community':type==='action'?'action':'';if(fx){b.classList.remove('fx-action','fx-community','fx-winner');requestAnimationFrame(()=>b.classList.add('fx-'+fx));setTimeout(()=>b.classList.remove('fx-'+fx),1900)}if(type==='pot_awarded'||type==='winner'){const ids=event.player_ids||event.players||[];highlightedWinners=new Set(ids);if(lastState)render(lastState)}if(type==='winner')showWinner(event)}
-const source=new EventSource('/events');source.onmessage=e=>{try{const event=JSON.parse(e.data);cue(event.type);animateEvent(event);refresh()}catch(_){}};source.onerror=()=>{document.body.dataset.connected='false'};
+const source=new EventSource('/events');source.onmessage=e=>{try{const event=JSON.parse(e.data);cue(event.type);animateEvent(event);refresh()}catch(_){}};source.onopen=()=>{document.body.dataset.connected='true';if(lastState)updateHealth(lastState)};source.onerror=()=>{document.body.dataset.connected='false';healthPill.className='health-pill disconnected';healthLabel.textContent='RECONNECTING';healthDetail.textContent='Game state is catching up'};
+document.addEventListener('pointerdown',unlockAudio,{once:false});document.addEventListener('keydown',unlockAudio,{once:false});
 refresh();setInterval(refresh,2500);
 </script></body></html>"""
 
@@ -173,7 +185,7 @@ class QuietThreadingHTTPServer(ThreadingHTTPServer):
 
 
 class OverlayServer:
-    def __init__(self, game, host="127.0.0.1", port=8765, background="#071c13", accent="#e6b94a", font="Arial, sans-serif", layout="horizontal", reduced_motion=False, audio_enabled=False, disclaimer_enabled=True):
+    def __init__(self, game, host="127.0.0.1", port=8765, background="#071c13", accent="#e6b94a", font="Arial, sans-serif", layout="horizontal", reduced_motion=False, audio_enabled=False, disclaimer_enabled=True, music_dir="music", music_enabled=True):
         self.game = game
         self.host = host
         self.port = port
@@ -184,6 +196,9 @@ class OverlayServer:
         self.reduced_motion = bool(reduced_motion)
         self.audio_enabled = bool(audio_enabled)
         self.disclaimer_enabled = bool(disclaimer_enabled)
+        self.music_dir = Path(music_dir)
+        self.music_enabled = bool(music_enabled)
+        self.music_tracks = self._discover_music_tracks()
         self._server = None
         self._thread = None
         self._closing = False
@@ -203,12 +218,19 @@ class OverlayServer:
                 elif path == "/events":
                     self._send_events(parse_qs(parsed.query))
                 elif path in ("/", "/overlay"):
-                    page = (OVERLAY_HTML.replace("__BACKGROUND__", outer.background).replace("__ACCENT__", outer.accent).replace("__FONT__", outer.font).replace("__LAYOUT__", outer.layout).replace("__REDUCED__", "reduced" if outer.reduced_motion else "").replace("__AUDIO__", "audio-on" if outer.audio_enabled else "").replace("__DISCLAIMER_CLASS__", "" if outer.disclaimer_enabled else "hidden"))
+                    query = parse_qs(parsed.query)
+                    audio_on = outer._query_enabled(query, "audio", outer.audio_enabled)
+                    music_on = audio_on and outer._query_enabled(query, "music", outer.music_enabled and bool(outer.music_tracks))
+                    music_tracks = [f"/music/{index}.wav" for index, _track in enumerate(outer.music_tracks)] if music_on else []
+                    page = (OVERLAY_HTML.replace("__BACKGROUND__", outer.background).replace("__ACCENT__", outer.accent).replace("__FONT__", outer.font).replace("__LAYOUT__", outer.layout).replace("__REDUCED__", "reduced" if outer.reduced_motion else "").replace("__AUDIO__", "audio-on" if audio_on else "").replace("__MUSIC__", "on" if music_on else "off").replace("__MUSIC_TRACKS__", json.dumps(music_tracks)).replace("__DISCLAIMER_CLASS__", "" if outer.disclaimer_enabled else "hidden"))
                     self._send(200, "text/html; charset=utf-8", page.encode("utf-8"))
                 elif path == "/health":
-                    self._send_json({"status": "ok", "schema_version": 2, "event_sequence": outer.game.state_snapshot()["event_sequence"]})
+                    state = outer.game.state_snapshot()
+                    self._send_json({"status": "ok" if state["health"]["overall"] != "warning" else "warning", "schema_version": 2, "event_sequence": state["event_sequence"], "health": state["health"]})
                 elif path == "/stream-info":
                     self._send_json(outer.stream_info())
+                elif path.startswith("/music/"):
+                    self._send_music(path)
                 else:
                     self._send_json({"error": "not found"}, status=404)
 
@@ -258,6 +280,62 @@ class OverlayServer:
                 self.end_headers()
                 self.wfile.write(body)
 
+            def _send_music(self, path):
+                match = re.fullmatch(r"/music/([0-9]+)\.wav", path)
+                if not match:
+                    self._send_json({"error": "not found"}, status=404)
+                    return
+                index = int(match.group(1))
+                if index < 0 or index >= len(outer.music_tracks):
+                    self._send_json({"error": "not found"}, status=404)
+                    return
+                track = outer.music_tracks[index]
+                try:
+                    size = track.stat().st_size
+                    start, end = 0, size - 1
+                    status = 200
+                    range_header = self.headers.get("Range", "")
+                    match_range = re.fullmatch(r"bytes=(\d*)-(\d*)", range_header.strip())
+                    if match_range:
+                        left, right = match_range.groups()
+                        if left == "" and right:
+                            suffix = min(size, int(right))
+                            start = size - suffix
+                        elif left:
+                            start = int(left)
+                        if right and left:
+                            end = min(size - 1, int(right))
+                        if start > end or start >= size:
+                            self.send_response(416)
+                            self.send_header("Content-Range", f"bytes */{size}")
+                            self.send_header("Access-Control-Allow-Origin", "*")
+                            self.end_headers()
+                            return
+                        status = 206
+                    length = end - start + 1
+                    self.send_response(status)
+                    self.send_header("Content-Type", "audio/wav")
+                    self.send_header("Content-Length", str(length))
+                    self.send_header("Cache-Control", "no-store")
+                    self.send_header("Accept-Ranges", "bytes")
+                    if status == 206:
+                        self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+                    self.send_header("Access-Control-Allow-Origin", "*")
+                    self.end_headers()
+                    with track.open("rb") as handle:
+                        handle.seek(start)
+                        remaining = length
+                        while True:
+                            if remaining <= 0:
+                                break
+                            chunk = handle.read(min(1024 * 256, remaining))
+                            if not chunk:
+                                break
+                            remaining -= len(chunk)
+                            self.wfile.write(chunk)
+                except (BrokenPipeError, ConnectionResetError, OSError):
+                    return
+
             def log_message(self, _format, *_args):
                 return
 
@@ -271,6 +349,27 @@ class OverlayServer:
     @property
     def url(self):
         return f"http://{self.host}:{self.port}/overlay"
+
+    @staticmethod
+    def _query_enabled(query, key, default):
+        if key not in query:
+            return bool(default)
+        value = (query.get(key) or [""])[-1].strip().lower()
+        return value not in {"0", "false", "off", "no", "muted"}
+
+    def _discover_music_tracks(self):
+        if not self.music_dir.exists() or not self.music_dir.is_dir():
+            return ()
+        return tuple(
+            sorted(
+                (
+                    path
+                    for path in self.music_dir.iterdir()
+                    if path.is_file() and path.suffix.lower() == ".wav"
+                ),
+                key=lambda path: path.name.lower(),
+            )
+        )
 
     def stream_info(self):
         """Return copy-safe public metadata without cards, prompts, or local paths."""

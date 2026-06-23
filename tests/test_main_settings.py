@@ -1,14 +1,25 @@
 from main import build_settings, parse_args
-from scripts.preview_overlay import parse_args as parse_preview_args
+from scripts.preview_overlay import apply_health_fixture, parse_args as parse_preview_args
+from game import PokerGame
 
 
 def test_audio_cli_overrides_are_clamped(tmp_path):
     missing_config = tmp_path / "missing.json"
     settings = build_settings(
-        parse_args(["--config", str(missing_config), "--audio-volume", "4", "--mute"])
+        parse_args(["--config", str(missing_config), "--audio-volume", "4", "--mute", "--music-volume", "2"])
     )
     assert settings.audio_volume == 1.0
+    assert settings.music_volume == 1.0
     assert not settings.audio_enabled
+
+
+def test_music_cli_can_disable_and_repoint_playlist(tmp_path):
+    music_dir = tmp_path / "casino_music"
+    settings = build_settings(
+        parse_args(["--config", str(tmp_path / "missing.json"), "--no-music", "--music-path", str(music_dir)])
+    )
+    assert not settings.music_enabled
+    assert settings.music_path == str(music_dir)
 
 
 def test_broadcast_pacing_cli_overrides_are_milliseconds(tmp_path):
@@ -37,3 +48,18 @@ def test_simulation_disclaimer_can_be_disabled_for_private_preview(tmp_path):
     )
     assert not settings.overlay_disclaimer_enabled
     assert parse_preview_args(["--no-simulation-disclaimer"]).no_simulation_disclaimer
+
+
+def test_preview_health_fixtures_cover_normal_degraded_and_recovery():
+    game = PokerGame(2, auto_restore=False)
+    for fixture, expected in (
+        ("normal", "normal"),
+        ("degraded", "degraded"),
+        ("recovered", "recovered"),
+        ("persistence-warning", "warning"),
+        ("audio-muted", "notice"),
+    ):
+        game.service_health.update({"ollama": "preview", "persistence": "ready", "checkpoint": "standby"})
+        game.audio_state["enabled"] = True
+        apply_health_fixture(game, fixture)
+        assert game.health_snapshot()["overall"] == expected

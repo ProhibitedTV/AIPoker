@@ -29,7 +29,10 @@ def parse_args(argv=None):
     parser.add_argument("--tts", action="store_true")
     parser.add_argument("--mute", action="store_true", help="Disable generated game sound cues")
     parser.add_argument("--no-ambience", action="store_true")
+    parser.add_argument("--no-music", action="store_true", help="Disable the casino music playlist")
     parser.add_argument("--audio-volume", type=float, help="Sound cue volume from 0.0 to 1.0")
+    parser.add_argument("--music-volume", type=float, help="Music-bed volume from 0.0 to 1.0")
+    parser.add_argument("--music-path", help="Directory containing stream-safe WAV music tracks")
     parser.add_argument("--windowed", action="store_true")
     continuous = parser.add_mutually_exclusive_group()
     continuous.add_argument("--continuous-play", action="store_true")
@@ -69,8 +72,14 @@ def build_settings(args):
         settings.audio_enabled = False
     if args.no_ambience:
         settings.ambience_enabled = False
+    if args.no_music:
+        settings.music_enabled = False
     if args.audio_volume is not None:
         settings.audio_volume = max(0.0, min(1.0, args.audio_volume))
+    if args.music_volume is not None:
+        settings.music_volume = max(0.0, min(1.0, args.music_volume))
+    if args.music_path:
+        settings.music_path = args.music_path
     if args.windowed:
         settings.fullscreen = False
     if args.continuous_play:
@@ -119,13 +128,23 @@ def main(argv=None):
         ambience_enabled=settings.ambience_enabled,
         ambience_volume=settings.ambience_volume,
         effects_volume=settings.effects_volume,
+        music_enabled=settings.music_enabled,
+        music_dir=settings.music_path,
+        music_volume=settings.music_volume,
+        music_shuffle=settings.music_shuffle,
     )
     commentary.on_speaking = audio.set_voice_active
     game.audio_state = {
-        "enabled": audio.enabled,
+        "enabled": audio.enabled or settings.overlay_audio_enabled,
+        "desktop_enabled": audio.enabled,
+        "browser_enabled": settings.overlay_audio_enabled,
         "master": settings.audio_volume,
+        "ambience_enabled": audio.ambience_enabled,
         "ambience": settings.ambience_volume,
         "effects": settings.effects_volume,
+        "music": settings.music_volume,
+        "music_enabled": audio.music_enabled and bool(audio.music_tracks),
+        "music_tracks": len(audio.music_tracks),
         "voice": settings.voice_volume,
     }
     game.subscribe(audio.handle_event)
@@ -142,6 +161,8 @@ def main(argv=None):
             reduced_motion=settings.reduced_motion,
             audio_enabled=settings.overlay_audio_enabled,
             disclaimer_enabled=settings.overlay_disclaimer_enabled,
+            music_dir=settings.music_path,
+            music_enabled=settings.music_enabled,
         ).start()
         game.service_health["overlay"] = "online"
         print(f"Streaming overlay: {overlay.url}")
