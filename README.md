@@ -45,11 +45,15 @@ The full browser source is `http://127.0.0.1:8765/overlay`. Configure OBS at **1
 
 For Twitch-ready title, description, panel copy, moderation notes, audio capture, VOD guidance, and a preflight checklist, use the [Twitch Broadcast Guide](docs/TWITCH_BROADCAST_GUIDE.md). Copy-safe live metadata is also available from `http://127.0.0.1:8765/stream-info`. The subtle simulation-only overlay label is enabled by default and can be disabled with `overlay_disclaimer_enabled: false` or `--no-simulation-disclaimer` for private previews.
 
+The header health badge summarizes normal play, safe model fallback, checkpoint recovery, muted audio, persistence warnings, and SSE reconnection without exposing errors or local details. Preview these states with `--health-state normal`, `degraded`, `recovered`, `persistence-warning`, or `audio-muted`; the same sanitized health object is available in `/state` and `/health`.
+
 - `/state` publishes backward-compatible state plus the version-2 player, pot, tournament, analysis, audio, and health schema.
 - `/events` is a reconnectable server-sent event stream with monotonic IDs for animation and custom integrations.
 - `/health` provides a minimal service probe.
 
-Desktop effects, ambience, and TTS should be captured through OBS Application Audio Capture. Browser-source cues are independently available through `overlay_audio_enabled`; leave that disabled when desktop audio is already captured to avoid doubling. Master, ambience, effects, and voice levels are separate, and nonessential sound is ducked around speech.
+The OBS browser source now carries table cues and the casino music bed by default, so OBS's **Control audio via OBS** option can mix the `AI Poker` source directly. Use `?audio=0`, `?music=0`, or `overlay_audio_enabled: false` if you instead capture the desktop app through OBS Application Audio Capture and want to prevent doubled sound. Master, ambience, effects, music, and voice levels are separate, and nonessential sound is ducked around speech.
+
+Stream-safe WAV tracks placed in `music/` play as a shuffled casino music bed by default in both the desktop mixer and the OBS browser source. Use `music_enabled`, `music_path`, `music_volume`, and `music_shuffle` in config, or launch with `--no-music`, `--music-path`, and `--music-volume`, to tune the playlist without changing the Foley or voice mix.
 
 Preview the real overlay without Ollama:
 
@@ -96,6 +100,6 @@ The release gate covers legal-action tables, heads-up transitions, minimum raise
 - `metrics.py` — atomic schema-v2 season and tournament records
 - `gui.py` — non-blocking Qt broadcast control room
 - `overlay_server.py` — OBS page, state API, SSE events, and health probe
-- `audio.py` / `commentary.py` — generated effects, ambience, ducking, and optional speech
+- `audio.py` / `commentary.py` — generated effects, ambience, shuffled music bed, ducking, and optional speech
 
 Season data, checkpoints, hand histories, and generated audio are written beneath `data/` by default. Resetting season statistics does not delete replay histories or checkpoints.

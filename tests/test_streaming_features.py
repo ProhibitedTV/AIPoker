@@ -4,12 +4,21 @@ import tempfile
 from threading import Event, Thread
 import time
 import unittest
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
+import wave
 
 from game import PokerGame
 from metrics import MetricsStore
 from overlay_server import OverlayServer
 from settings import AppSettings
+
+
+def write_tiny_wave(path):
+    with wave.open(str(path), "wb") as output:
+        output.setnchannels(1)
+        output.setsampwidth(2)
+        output.setframerate(8000)
+        output.writeframes(b"\x00\x00\x20\x03\xe0\xfc\x00\x00")
 
 
 class StreamingFeatureTests(unittest.TestCase):
@@ -71,9 +80,13 @@ class StreamingFeatureTests(unittest.TestCase):
                 html = response.read().decode("utf-8")
             with urlopen(f"http://127.0.0.1:{server.port}/stream-info", timeout=2) as response:
                 stream_info = json.load(response)
+            with urlopen(f"http://127.0.0.1:{server.port}/health", timeout=2) as response:
+                health = json.load(response)
             self.assertEqual(state["pot"], 0)
             self.assertEqual(state["schema_version"], 2)
             self.assertEqual(len(state["players"]), 2)
+            self.assertEqual(state["health"]["overall"], "normal")
+            self.assertEqual(health["health"], state["health"])
             self.assertIn("AI Poker Overlay", html)
             self.assertIn('aria-live="polite"', html)
             self.assertIn('class="equity-meter"', html)
@@ -87,12 +100,63 @@ class StreamingFeatureTests(unittest.TestCase):
             self.assertIn('class="winner-banner"', html)
             self.assertIn("reduced *", html)
             self.assertIn("SIMULATION ONLY", html)
+            self.assertIn('id="healthPill"', html)
             self.assertIn("No Real Money", stream_info["title"])
             self.assertIn("fictional chips", stream_info["description"])
             self.assertEqual(len(stream_info["players"]), 2)
             self.assertNotIn("hole_cards", json.dumps(stream_info))
         finally:
             server.close()
+
+    def test_overlay_browser_audio_and_music_can_be_enabled_for_obs_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            music_dir = Path(directory) / "music"
+            music_dir.mkdir()
+            write_tiny_wave(music_dir / "Casino Bed.wav")
+            game = PokerGame(2, decision_provider=lambda *_: "check")
+            server = OverlayServer(game, port=0, audio_enabled=True, music_dir=music_dir).start()
+            try:
+                with urlopen(server.url, timeout=2) as response:
+                    default_html = response.read().decode("utf-8")
+                with urlopen(f"{server.url}?audio=0", timeout=2) as response:
+                    muted_html = response.read().decode("utf-8")
+                with urlopen(f"http://127.0.0.1:{server.port}/music/0.wav", timeout=2) as response:
+                    music_head = response.read(12)
+                request = Request(
+                    f"http://127.0.0.1:{server.port}/music/0.wav",
+                    headers={"Range": "bytes=0-3"},
+                )
+                with urlopen(request, timeout=2) as response:
+                    ranged = response.read()
+
+                self.assertIn("audio-on", default_html)
+                self.assertIn('data-music="on"', default_html)
+                self.assertIn('"/music/0.wav"', default_html)
+                self.assertIn('data-music="off" class=" "', muted_html)
+                self.assertTrue(music_head.startswith(b"RIFF"))
+                self.assertEqual(ranged, b"RIFF")
+            finally:
+                server.close()
+
+    def test_public_health_states_are_bounded_and_viewer_safe(self):
+        game = PokerGame(2, decision_provider=lambda *_: "check")
+        scenarios = [
+            ({"ollama": "online"}, {"enabled": True}, "normal"),
+            ({"ollama": "fallback"}, {"enabled": True}, "degraded"),
+            ({"checkpoint": "restored"}, {"enabled": True}, "recovered"),
+            ({"ollama": "online"}, {"enabled": False}, "notice"),
+            ({"persistence": "warning"}, {"enabled": True}, "warning"),
+        ]
+        for services, audio, expected in scenarios:
+            game.service_health.update({"ollama": "online", "persistence": "ready", "checkpoint": "standby"})
+            game.service_health.update(services)
+            game.audio_state.update(audio)
+            health = game.health_snapshot()
+            self.assertEqual(health["overall"], expected)
+            public = json.dumps(health).lower()
+            self.assertNotIn("traceback", public)
+            self.assertNotIn("\\", public)
+            self.assertNotIn("/users/", public)
 
     def test_overlay_simulation_disclaimer_can_be_hidden(self):
         game = PokerGame(2, decision_provider=lambda *_: "check")

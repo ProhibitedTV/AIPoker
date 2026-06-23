@@ -6,6 +6,15 @@ import wave
 from audio import AudioService
 
 
+def write_tiny_wave(path, samples=(0, 12000, -12000, 0), frame_rate=8000):
+    with wave.open(str(path), "wb") as output:
+        output.setnchannels(1)
+        output.setsampwidth(2)
+        output.setframerate(frame_rate)
+        for sample in samples:
+            output.writeframesraw(int(sample).to_bytes(2, "little", signed=True))
+
+
 def test_audio_service_generates_and_plays_event_cues_off_thread():
     played = []
     heard = Event()
@@ -45,3 +54,37 @@ def test_audio_can_be_muted_without_restarting_service():
         service.handle_event({"type": "winner", "message": "P1 wins"})
         assert not heard.wait(timeout=0.15)
         service.close()
+
+
+def test_audio_service_discovers_and_scales_music_playlist(tmp_path):
+    music_dir = tmp_path / "music"
+    music_dir.mkdir()
+    source = music_dir / "Neon Test.wav"
+    write_tiny_wave(source)
+
+    played = []
+    heard = Event()
+
+    def playback(path):
+        played.append(Path(path))
+        heard.set()
+
+    service = AudioService(
+        enabled=True,
+        volume=0.5,
+        cache_dir=tmp_path / "cache",
+        playback=playback,
+        music_enabled=True,
+        music_dir=music_dir,
+        music_volume=0.5,
+        music_shuffle=False,
+    )
+    assert service.music_tracks == (source,)
+    assert heard.wait(timeout=2)
+    service.close()
+
+    music_cache = next(path for path in played if path.name.startswith("music-Neon-Test-"))
+    with wave.open(str(music_cache), "rb") as cached:
+        frames = cached.readframes(cached.getnframes())
+    first_loud_sample = int.from_bytes(frames[2:4], "little", signed=True)
+    assert 2500 < first_loud_sample < 3500

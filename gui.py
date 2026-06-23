@@ -390,6 +390,12 @@ class PokerGUI(QMainWindow):
         self.ambience_checkbox.setChecked(bool(self.audio_service and self.audio_service.ambience_enabled))
         self.ambience_checkbox.setEnabled(bool(self.audio_service and self.audio_service.available))
         self.ambience_checkbox.toggled.connect(self.toggle_ambience)
+        self.music_checkbox = QCheckBox("Music")
+        self.music_checkbox.setChecked(bool(self.audio_service and self.audio_service.music_enabled and self.audio_service.music_tracks))
+        self.music_checkbox.setEnabled(bool(self.audio_service and self.audio_service.available and self.audio_service.music_tracks))
+        self.music_checkbox.toggled.connect(self.toggle_music)
+        if not self.music_checkbox.isEnabled():
+            self.music_checkbox.setToolTip("Drop WAV tracks into the configured music folder to enable the playlist")
         self.fullscreen_button = QPushButton("Fullscreen")
         self.fullscreen_button.clicked.connect(self.toggle_fullscreen)
         self.reset_stats_button = QPushButton("Reset season stats")
@@ -405,6 +411,7 @@ class PokerGUI(QMainWindow):
         controls.addWidget(self.continuous_checkbox)
         controls.addWidget(self.sound_checkbox)
         controls.addWidget(self.ambience_checkbox)
+        controls.addWidget(self.music_checkbox)
         controls.addStretch()
         controls.addWidget(shortcuts)
         controls.addWidget(self.fullscreen_button)
@@ -416,10 +423,12 @@ class PokerGUI(QMainWindow):
         self.master_slider = self._audio_slider(self.settings.audio_volume, "Master")
         self.ambience_slider = self._audio_slider(self.settings.ambience_volume, "Ambience")
         self.effects_slider = self._audio_slider(self.settings.effects_volume, "Effects")
+        self.music_slider = self._audio_slider(self.settings.music_volume, "Music")
         for caption, slider in (
             ("MASTER", self.master_slider),
             ("AMBIENCE", self.ambience_slider),
             ("EFFECTS", self.effects_slider),
+            ("MUSIC", self.music_slider),
         ):
             label = QLabel(caption)
             label.setStyleSheet("color:#78968b;font-size:9px;font-weight:700;")
@@ -508,17 +517,33 @@ class PokerGUI(QMainWindow):
     def toggle_sound_cues(self, enabled):
         if self.audio_service:
             self.audio_service.set_enabled(enabled)
+            self.game.audio_state["desktop_enabled"] = self.audio_service.enabled
+            self.game.audio_state["enabled"] = self.audio_service.enabled or bool(self.game.audio_state.get("browser_enabled"))
 
     def toggle_ambience(self, enabled):
         if self.audio_service:
             self.audio_service.set_ambience_enabled(enabled)
+            self.game.audio_state["ambience_enabled"] = self.audio_service.ambience_enabled
+
+    def toggle_music(self, enabled):
+        if self.audio_service:
+            self.audio_service.set_music_enabled(enabled)
+            self.game.audio_state["music_enabled"] = self.audio_service.music_enabled and bool(self.audio_service.music_tracks)
 
     def update_audio_mix(self):
         if self.audio_service:
+            master = self.master_slider.value() / 100
+            ambience = self.ambience_slider.value() / 100
+            effects = self.effects_slider.value() / 100
+            music = self.music_slider.value() / 100
             self.audio_service.set_channel_volumes(
-                master=self.master_slider.value() / 100,
-                ambience=self.ambience_slider.value() / 100,
-                effects=self.effects_slider.value() / 100,
+                master=master,
+                ambience=ambience,
+                effects=effects,
+                music=music,
+            )
+            self.game.audio_state.update(
+                {"master": master, "ambience": ambience, "effects": effects, "music": music}
             )
 
     def toggle_pause(self):
