@@ -197,6 +197,9 @@ class PokerGUI(QMainWindow):
             QLabel#actionBadge { background: #17382d; color: #d9e7e1; border-radius: 7px; padding: 6px; font-weight: 700; }
             QLabel#commentaryBanner { background: #081c15; color: #f5d77e; border: 1px solid #315747;
                 border-radius: 9px; padding: 9px; font-size: 14px; font-weight: 600; }
+            QLabel#winnerSpotlight { background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #4a3510, stop:0.5 #171208, stop:1 #4a3510);
+                color: #ffe38a; border: 1px solid #e2bd56; border-radius: 10px; padding: 9px;
+                font-size: 16px; font-weight: 900; letter-spacing: 1px; }
             QLabel#sectionTitle { color: #91b2a5; font-size: 11px; font-weight: 800; letter-spacing: 1px; }
             QPushButton { background: #1c4436; color: #ffffff; border: 1px solid #376a57; border-radius: 8px;
                 padding: 8px 14px; font-weight: 700; }
@@ -321,6 +324,12 @@ class PokerGUI(QMainWindow):
         self.pot_detail_label.setAlignment(Qt.AlignCenter)
         self.pot_detail_label.setStyleSheet("color:#d7bd72;font-size:11px;font-weight:700;")
         board_layout.addWidget(self.pot_detail_label)
+        self.winner_spotlight_label = QLabel("")
+        self.winner_spotlight_label.setObjectName("winnerSpotlight")
+        self.winner_spotlight_label.setAlignment(Qt.AlignCenter)
+        self.winner_spotlight_label.setWordWrap(True)
+        self.winner_spotlight_label.hide()
+        board_layout.addWidget(self.winner_spotlight_label)
         self.commentary_banner = QLabel("Table ready. Start the broadcast when Ollama is online.")
         self.commentary_banner.setObjectName("commentaryBanner")
         self.commentary_banner.setAlignment(Qt.AlignCenter)
@@ -681,6 +690,20 @@ class PokerGUI(QMainWindow):
             "Table ready. Start the broadcast when Ollama is online."
         ]
         self.commentary_banner.setText(latest_commentary[0])
+        winner_lines = []
+        for index, player in enumerate(self.game.players):
+            if not player.last_action.startswith("Won"):
+                continue
+            player_state = snapshot["players"][index]
+            amount = player.last_action.removeprefix("Won").strip()
+            hand_name = player_state.get("hand_label") or "winning hand"
+            payout = f" {amount} chips" if amount else ""
+            winner_lines.append(f"WINNER  •  {player.name} takes{payout} with {hand_name}")
+        if winner_lines:
+            self.winner_spotlight_label.setText("   |   ".join(winner_lines))
+            self.winner_spotlight_label.show()
+        else:
+            self.winner_spotlight_label.hide()
 
         for index, player in enumerate(self.game.players):
             player_state = snapshot["players"][index]
@@ -688,6 +711,9 @@ class PokerGUI(QMainWindow):
             if player.eliminated or player.folded:
                 frame_style = "background:#101a17;border:1px solid #293a34;border-radius:12px;"
                 name_style = "color:#71827b;font-size:16px;font-weight:700;"
+            elif player.last_action.startswith("Won"):
+                frame_style = "background:#261f0d;border:2px solid #e2bd56;border-radius:12px;"
+                name_style = "color:#ffe38a;font-size:16px;font-weight:900;"
             elif player.all_in:
                 frame_style = "background:#321e1b;border:2px solid #d45f52;border-radius:12px;"
                 name_style = "color:#ffd0c8;font-size:16px;font-weight:800;"
