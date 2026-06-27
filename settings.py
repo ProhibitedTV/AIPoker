@@ -4,6 +4,8 @@ from dataclasses import asdict, dataclass, field, fields
 import json
 from pathlib import Path
 
+from program_rotation import default_variety_segments
+
 
 def default_profiles():
     return [
@@ -47,6 +49,9 @@ class AppSettings:
     player_profiles: list = field(default_factory=default_profiles)
     hands_per_level: int = 8
     tournament_levels: list = field(default_factory=default_tournament_levels)
+    variety_rotation_enabled: bool = True
+    variety_rotation_interval_hands: int = 24
+    variety_segments: list = field(default_factory=default_variety_segments)
     checkpoint_path: str = "data/checkpoint.json"
     hand_history_path: str = "data/hand_history.jsonl"
     equity_samples: int = 1600
@@ -62,6 +67,14 @@ class AppSettings:
     overlay_layout: str = "horizontal"
     overlay_audio_enabled: bool = True
     overlay_disclaimer_enabled: bool = True
+    overlay_director_enabled: bool = True
+    overlay_recap_duration_ms: int = 7500
+    overlay_moment_duration_ms: int = 6200
+    overlay_visual_debug: bool = False
+    casino_bumpers_enabled: bool = True
+    casino_bumper_frequency: str = "selected_hands"
+    casino_bumper_duration_ms: int = 6500
+    casino_bumper_responsible_label: bool = True
     tts_enabled: bool = False
     tts_volume: float = 0.8
     tts_rate: int = 175
@@ -87,6 +100,14 @@ class AppSettings:
         self.game_mode = "tournament" if self.game_mode in {"tournament", "sit_and_go", "sng"} else "cash"
         self.starting_chips = max(1, int(self.starting_chips))
         self.hands_per_level = max(1, int(self.hands_per_level))
+        self.variety_rotation_interval_hands = max(1, int(self.variety_rotation_interval_hands))
+        if not isinstance(self.variety_segments, list) or not self.variety_segments:
+            self.variety_segments = default_variety_segments()
+        self.overlay_recap_duration_ms = max(1200, int(self.overlay_recap_duration_ms))
+        self.overlay_moment_duration_ms = max(1200, int(self.overlay_moment_duration_ms))
+        self.casino_bumper_duration_ms = max(4000, min(8000, int(self.casino_bumper_duration_ms)))
+        if self.casino_bumper_frequency not in {"selected_hands", "every_hand", "off"}:
+            self.casino_bumper_frequency = "selected_hands"
 
     @classmethod
     def load(cls, path):

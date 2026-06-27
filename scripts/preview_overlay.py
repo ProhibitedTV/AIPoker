@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from game import PokerGame
 from metrics import MetricsStore
 from overlay_server import OverlayServer
-from settings import default_profiles
+from settings import default_profiles, default_variety_segments
 
 
 TABLE_TALK = {
@@ -92,6 +92,12 @@ def parse_args(argv=None):
     parser.add_argument("--audio", action="store_true", help="Enable browser-source cue and music audio")
     parser.add_argument("--reduced-motion", action="store_true")
     parser.add_argument("--no-simulation-disclaimer", action="store_true")
+    parser.add_argument("--no-director", action="store_true", help="Disable directed visual moments")
+    parser.add_argument("--no-variety-rotation", action="store_true", help="Keep the preview on one table segment")
+    parser.add_argument("--no-casino-bumpers", action="store_true", help="Disable non-wagering casino bumper intermissions")
+    parser.add_argument("--visual-debug", action="store_true", help="Show OBS safe-area and director labels")
+    parser.add_argument("--recap-duration", type=float, default=7.5, help="Seconds to hold recap visuals")
+    parser.add_argument("--moment-duration", type=float, default=6.2, help="Seconds to hold major moment visuals")
     parser.add_argument(
         "--health-state",
         choices=("normal", "degraded", "recovered", "persistence-warning", "audio-muted"),
@@ -125,6 +131,9 @@ def main(argv=None):
         metrics_store=metrics,
         rng_seed=args.seed,
         auto_restore=False,
+        variety_rotation_enabled=not args.no_variety_rotation,
+        variety_segments=default_variety_segments(),
+        casino_bumpers_enabled=not args.no_casino_bumpers,
         action_delay_ms=round(max(0.0, args.action_delay) * 1000),
         deal_delay_ms=round(max(0.0, args.deal_delay) * 1000),
     )
@@ -136,6 +145,10 @@ def main(argv=None):
         reduced_motion=args.reduced_motion,
         audio_enabled=args.audio,
         disclaimer_enabled=not args.no_simulation_disclaimer,
+        director_enabled=not args.no_director,
+        recap_duration_ms=round(max(1.2, args.recap_duration) * 1000),
+        moment_duration_ms=round(max(1.2, args.moment_duration) * 1000),
+        visual_debug=args.visual_debug,
     ).start()
     game.service_health["overlay"] = "online"
     stop = Event()

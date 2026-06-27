@@ -38,8 +38,54 @@ def test_broadcast_pacing_cli_overrides_are_milliseconds(tmp_path):
     assert settings.stage_delay_ms == 4500
 
 
+def test_overlay_director_cli_overrides(tmp_path):
+    settings = build_settings(
+        parse_args(
+            [
+                "--config", str(tmp_path / "missing.json"),
+                "--no-director",
+                "--overlay-recap-duration", "8.25",
+                "--overlay-moment-duration", "5.5",
+                "--overlay-visual-debug",
+            ]
+        )
+    )
+    assert not settings.overlay_director_enabled
+    assert settings.overlay_recap_duration_ms == 8250
+    assert settings.overlay_moment_duration_ms == 5500
+    assert settings.overlay_visual_debug
+
+
+def test_variety_rotation_cli_overrides(tmp_path):
+    settings = build_settings(
+        parse_args(
+            [
+                "--config", str(tmp_path / "missing.json"),
+                "--no-variety-rotation",
+                "--variety-interval-hands", "9",
+            ]
+        )
+    )
+    assert not settings.variety_rotation_enabled
+    assert settings.variety_rotation_interval_hands == 9
+
+
+def test_casino_bumper_cli_override(tmp_path):
+    settings = build_settings(
+        parse_args(["--config", str(tmp_path / "missing.json"), "--no-casino-bumpers"])
+    )
+    assert not settings.casino_bumpers_enabled
+    assert settings.casino_bumper_duration_ms == 6500
+
+
 def test_overlay_preview_can_exercise_six_seat_layout():
     assert parse_preview_args(["--players", "6"]).players == 6
+    args = parse_preview_args(["--no-director", "--no-variety-rotation", "--no-casino-bumpers", "--visual-debug", "--recap-duration", "8"])
+    assert args.no_director
+    assert args.no_variety_rotation
+    assert args.no_casino_bumpers
+    assert args.visual_debug
+    assert args.recap_duration == 8
 
 
 def test_simulation_disclaimer_can_be_disabled_for_private_preview(tmp_path):

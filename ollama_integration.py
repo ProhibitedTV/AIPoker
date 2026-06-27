@@ -181,6 +181,7 @@ def _json_safe_context(context):
         "legal_actions": context.get("legal_actions", []),
         "players": public_players,
         "action_history": context.get("action_history", []),
+        "table_program": context.get("table_program", {}),
         "strategy_hint": context.get("strategy_hint", {}),
     }
 

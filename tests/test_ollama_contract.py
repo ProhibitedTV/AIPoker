@@ -14,6 +14,8 @@ def test_prompt_whitelist_strips_opponent_cards_and_viewer_analysis():
             }
         ],
         "viewer_equity": {"vega": 91.2},
+        "table_program": {"segment_id": "ante_splash_cash", "strategy_hint": "Antes are public."},
+        "presentation": {"bumper": {"enabled": True, "kind": "winner_jackpot"}},
         "community_cards_raw": [(2, "clubs")],
         "legal_actions": [{"action": "check"}],
     }
@@ -22,6 +24,8 @@ def test_prompt_whitelist_strips_opponent_cards_and_viewer_analysis():
     assert "hole_cards" not in safe["players"][0]
     assert "equity" not in safe["players"][0]
     assert "viewer_equity" not in safe
+    assert "presentation" not in safe
+    assert safe["table_program"]["segment_id"] == "ante_splash_cash"
     assert "community_cards_raw" not in safe
 
 

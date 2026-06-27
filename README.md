@@ -12,7 +12,7 @@ The engine is designed to be auditable and recoverable for 24/7 operation. It en
 - Cash mode with fixed stakes and zero-stack reloads, plus escalating hand-count sit-and-go tournaments with big-blind antes and automatic restarts
 - Spectator-visible hole cards and live equity, while each Ollama prompt receives only that player's private cards and public table information
 - Persistent schema-v2 statistics: VPIP, PFR, three-bets, aggression, showdown results, all-ins, tournament finishes, notable hands, and chip history
-- League/program/story/personality state for autonomous sports-channel context without requiring Ollama
+- League/program/story/personality state plus scheduled 24/7 variety blocks for autonomous sports-channel context without requiring Ollama
 - Atomic hand-boundary checkpoints, rotating replayable JSONL hand histories, bounded queues, and legal fallback play during Ollama outages
 - 1920×1080 OBS scene, compact overlay, SSE event feed, layered original audio, optional TTS, reduced motion, and offline preview tools
 
@@ -39,6 +39,8 @@ python main.py --single-hand --seed 42 --reduced-motion --no-ambience
 ```
 
 Copy `config.example.json` to `config.json` to select per-seat Ollama models, game mode, stacks, tournament levels, pacing, analysis depth, audio channels, persistence paths, and overlay styling. Explicit CLI options override the file. An `auto` model is resolved from installed Ollama models at runtime; if Ollama is unavailable, bounded fallback policy keeps the stream moving and the overlay reports fallback health.
+
+The 24/7 variety rotation is enabled by default for the app. It changes safe hand-boundary table blocks such as championship sit-and-go, turbo sit-and-go, deep-stack cash, ante splash cash, and high-roller cash spotlight so the stream does not become ten hours of identical texture. Each block publishes `/state.variety`, updates the OBS browser-source labels and table skin, and gives AI players a public table-style hint without changing hidden-card privacy. Use `--no-variety-rotation` or `variety_rotation_enabled: false` for one fixed format.
 
 ## OBS and audio
 
@@ -75,6 +77,10 @@ Only newly dealt cards flip, only changed wagers slide chips forward, and winner
 ### Audience-first spectator design
 
 The OBS scene uses a seated casino-table layout for 2–6 players, with a dealer/deck tray, visible pot chips, per-seat stack chips, committed wager chips, and a bottom sports ticker for action, program segment, league context, and rotating story beats. It explains each street in plain English, expands dealer and blind abbreviations, identifies the acting player, describes the immediate choice, and labels equity as “chance to win.” A five-step hand tracker, chip-leader marker, big-pot and all-in tension cues, newcomer-friendly statistics, winner takeover, and restrained celebration animation keep the story legible even for viewers who have never played poker. These layers are event-driven, so idle polling never replays a card, chip, action, or award animation.
+
+The broadcast director layer is enabled by default. `/state.presentation` tells the OBS page when to use table, decision, big-pot, all-in, showdown, or recap presentation. Use `?director=0` for a plain table source and `?visual_debug=1` to show safe-area/director labels while tuning OBS. `python scripts/visual_smoke.py` generates and checks deterministic visual fixtures for every director mode.
+
+Safe casino-style bumpers are enabled by default between selected hands. They add short decorative reel, jackpot-light, chip-rain, winner, streak, chip-leader, and next-format intermissions derived from poker results only. They are not playable slots: there are no credits, balances, buttons, deposits, cash-outs, or wager prompts, and the bumper keeps the simulation-only/no-real-money label visible. Use `--no-casino-bumpers` or `casino_bumpers_enabled: false` to disable them.
 
 ## Rules and house policy
 

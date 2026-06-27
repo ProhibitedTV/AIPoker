@@ -5,16 +5,17 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 
-def build_broadcast_context(metrics=None, players=None, mode="cash", tournament=None, action_history=None, hand_number=0, stage=""):
+def build_broadcast_context(metrics=None, players=None, mode="cash", tournament=None, action_history=None, hand_number=0, stage="", variety=None):
     """Return overlay-safe context derived only from public state and persisted metrics."""
 
     metrics = metrics or {}
     players = players or []
     action_history = list(action_history or [])
-    league = build_league_snapshot(metrics, players, mode, tournament, hand_number)
-    storylines = build_storylines(metrics, players, action_history, tournament)
+    variety = variety or {}
+    league = build_league_snapshot(metrics, players, mode, tournament, hand_number, variety=variety)
+    storylines = build_storylines(metrics, players, action_history, tournament, variety=variety)
     personalities = build_personality_arcs(metrics, players)
-    program = build_program_segment(mode, tournament, stage, hand_number, storylines)
+    program = build_program_segment(mode, tournament, stage, hand_number, storylines, variety=variety)
     return {
         "program": program,
         "league": league,
@@ -23,9 +24,10 @@ def build_broadcast_context(metrics=None, players=None, mode="cash", tournament=
     }
 
 
-def build_program_segment(mode, tournament, stage, hand_number, storylines):
+def build_program_segment(mode, tournament, stage, hand_number, storylines, variety=None):
     stage_key = str(stage or "").lower()
     tournament = tournament or {}
+    variety = variety or {}
     if tournament.get("complete"):
         segment = "Trophy Ceremony"
         detail = "Champion confirmed; next sit-and-go is queued."
@@ -41,6 +43,9 @@ def build_program_segment(mode, tournament, stage, hand_number, storylines):
     else:
         segment = "Cash Table Live"
         detail = "Fixed-stakes exhibition table with simulated chips."
+    if variety.get("enabled") and variety.get("title") and stage_key not in {"showdown", "paused", "recovering"} and not tournament.get("complete"):
+        segment = variety["title"]
+        detail = f"{str(variety.get('tempo', 'standard')).title()} segment · {variety.get('viewer_explainer', detail)}"
 
     lead = storylines[0]["text"] if storylines else "Season context warming up."
     return {
@@ -49,10 +54,17 @@ def build_program_segment(mode, tournament, stage, hand_number, storylines):
         "clock": datetime.now(timezone.utc).strftime("%H:%M UTC"),
         "hand": int(hand_number or 0),
         "bumper": lead,
+        "variety": {
+            "segment_id": variety.get("segment_id"),
+            "style": variety.get("style"),
+            "tempo": variety.get("tempo"),
+            "hands_remaining": variety.get("hands_remaining"),
+        } if variety else None,
     }
 
 
-def build_league_snapshot(metrics, players, mode, tournament, hand_number):
+def build_league_snapshot(metrics, players, mode, tournament, hand_number, variety=None):
+    variety = variety or {}
     player_stats = metrics.get("players", {}) if isinstance(metrics, dict) else {}
     standings = []
     for player in players:
@@ -89,13 +101,22 @@ def build_league_snapshot(metrics, players, mode, tournament, hand_number):
         "standings": standings[:6],
         "records": records,
         "championship_banners": banners,
-        "current_title": _current_title(mode, tournament),
+        "current_title": variety.get("title") if variety.get("enabled") and variety.get("title") else _current_title(mode, tournament),
     }
 
 
-def build_storylines(metrics, players, action_history, tournament):
+def build_storylines(metrics, players, action_history, tournament, variety=None):
+    variety = variety or {}
     player_stats = metrics.get("players", {}) if isinstance(metrics, dict) else {}
     lines = []
+    if variety.get("enabled") and variety.get("title"):
+        lines.append(
+            {
+                "kind": "format",
+                "title": "Format Rotation",
+                "text": f"{variety.get('title')} is live: {variety.get('viewer_explainer', 'a fresh table style is underway')}",
+            }
+        )
     chip_leader = max(players, key=lambda player: int(player.get("chips", 0)), default=None)
     if chip_leader:
         lines.append(

@@ -14,6 +14,11 @@ from broadcast_context import build_broadcast_context
 from deck import Deck
 from hand_evaluator import evaluate_hand
 from player import AIPlayer, PlayerProfile
+from presentation import build_presentation_snapshot
+from program_rotation import (
+    normalize_variety_segments,
+    segment_public_snapshot,
+)
 
 
 DEFAULT_TOURNAMENT_LEVELS = (
@@ -64,6 +69,13 @@ class PokerGame:
         analysis_depth="full",
         action_delay_ms=0,
         deal_delay_ms=0,
+        variety_rotation_enabled=False,
+        variety_rotation_interval_hands=24,
+        variety_segments=None,
+        casino_bumpers_enabled=True,
+        casino_bumper_duration_ms=6500,
+        casino_bumper_responsible_label=True,
+        casino_bumper_frequency="selected_hands",
         sleep_provider=None,
     ):
         if not 2 <= int(num_players) <= 6:
@@ -128,6 +140,34 @@ class PokerGame:
         self.eliminations = []
         self.hands_per_level = max(1, int(hands_per_level))
         self.tournament_levels = self._normalize_levels(tournament_levels)
+        self._base_starting_chips = self.starting_chips
+        self._base_small_blind = self.base_small_blind
+        self._base_big_blind = self.base_big_blind
+        self._base_hands_per_level = self.hands_per_level
+        self._base_tournament_levels = list(self.tournament_levels)
+        self.variety_rotation_enabled = bool(variety_rotation_enabled)
+        self.variety_rotation_interval_hands = max(1, int(variety_rotation_interval_hands or 24))
+        self.variety_segments = normalize_variety_segments(
+            variety_segments,
+            fallback_interval=self.variety_rotation_interval_hands,
+            base_small=self.base_small_blind,
+            base_big=self.base_big_blind,
+            base_stack=self.starting_chips,
+        )
+        start_index = next(
+            (index for index, segment in enumerate(self.variety_segments) if segment.get("mode") == self.mode),
+            0,
+        )
+        self.current_variety_index = start_index
+        self.current_variety_segment = self.variety_segments[start_index] if self.variety_segments else None
+        self._variety_segment_started_hand = 0
+        self._variety_rotation_delayed = False
+        self.casino_bumpers_enabled = bool(casino_bumpers_enabled)
+        self.casino_bumper_duration_ms = max(4000, min(8000, int(casino_bumper_duration_ms or 6500)))
+        self.casino_bumper_responsible_label = bool(casino_bumper_responsible_label)
+        self.casino_bumper_frequency = str(casino_bumper_frequency or "selected_hands")
+        if self.variety_rotation_enabled and self.current_variety_segment:
+            self._activate_variety_segment(self.current_variety_segment, self.current_variety_index, initial=True, reset_table=True)
         self.metrics_store = metrics_store
         self.history_path = Path(history_path) if history_path else None
         self.checkpoint_path = Path(checkpoint_path) if checkpoint_path else None
@@ -230,9 +270,98 @@ class PokerGame:
                 events = [event for event in self._events if event["id"] > int(sequence or 0)]
             return [dict(event) for event in events]
 
+    # ----- 24/7 variety rotation ----------------------------------------
+
+    def _maybe_rotate_variety_segment(self):
+        if not self.variety_rotation_enabled or not self.variety_segments or self.hand_in_progress:
+            return
+        active = self.current_variety_segment or self.variety_segments[self.current_variety_index]
+        duration = max(1, int(active.get("duration_hands", self.variety_rotation_interval_hands) or self.variety_rotation_interval_hands))
+        elapsed = max(0, int(self.hand_number or 0) - int(self._variety_segment_started_hand or 0))
+        if elapsed < duration:
+            self._variety_rotation_delayed = False
+            return
+        index = (self.current_variety_index + 1) % len(self.variety_segments)
+        segment = self.variety_segments[index]
+        if self.mode == "tournament" and self.tournament_hand_number > 0 and not self.tournament_complete:
+            self._variety_rotation_delayed = segment.get("id") != (self.current_variety_segment or {}).get("id")
+            return
+        self._activate_variety_segment(segment, index, initial=False, reset_table=True)
+        self._variety_rotation_delayed = False
+
+    def _activate_variety_segment(self, segment, index=0, initial=False, reset_table=True):
+        segment = dict(segment or {})
+        previous = self.current_variety_segment or {}
+        previous_title = previous.get("title")
+        self.current_variety_segment = segment
+        self.current_variety_index = int(index or 0)
+        self._variety_segment_started_hand = int(self.hand_number or 0)
+        desired_mode = "tournament" if segment.get("mode") == "tournament" else "cash"
+        mode_changed = desired_mode != self.mode
+        self.mode = desired_mode
+        self.starting_chips = int(segment.get("starting_chips") or self._base_starting_chips)
+        self.hands_per_level = int(segment.get("hands_per_level") or self._base_hands_per_level)
+        self.tournament_levels = self._normalize_levels(segment.get("levels") or self._base_tournament_levels)
+        if self.mode == "cash":
+            self.small_blind = int(segment.get("small_blind") or self._base_small_blind)
+            self.big_blind = int(segment.get("big_blind") or self._base_big_blind)
+            self.ante = max(0, int(segment.get("ante", 0) or 0))
+        else:
+            self._apply_tournament_level()
+        if reset_table and (mode_changed or self.mode == "cash" or initial):
+            self._reset_table_for_variety_segment()
+        if reset_table and mode_changed and self.mode == "tournament" and not initial:
+            self._start_new_tournament()
+        if not initial:
+            title = segment.get("title", "New table segment")
+            detail = segment.get("viewer_explainer", "The broadcast has rotated into a fresh table segment.")
+            transition = f" from {previous_title}" if previous_title else ""
+            self._emit(
+                "program_changed",
+                f"Table format shifts{transition} to {title}. {detail}",
+                segment=self.variety_snapshot(),
+            )
+
+    def _reset_table_for_variety_segment(self):
+        self.tournament_hand_number = 0 if self.mode == "tournament" else self.tournament_hand_number
+        self.tournament_complete = False
+        self.tournament_winner = None
+        self.eliminations = []
+        self.dealer_position = -1
+        self.small_blind_position = None
+        self.big_blind_position = None
+        self.next_to_act = None
+        self.current_bet_to_match = 0
+        self.last_full_raise = self.big_blind
+        self.last_full_bet_level = 0
+        self.community_cards = []
+        self.pot = 0
+        self.pots = []
+        self.action_history.clear()
+        for player in self.players:
+            player.chips = self.starting_chips
+            player.eliminated = False
+            player.is_active = True
+            player.reset_for_next_round()
+
+    def variety_snapshot(self):
+        active = self.current_variety_segment or (self.variety_segments[0] if self.variety_segments else {})
+        duration = int(active.get("duration_hands", self.variety_rotation_interval_hands) or self.variety_rotation_interval_hands)
+        offset = max(0, int(self.hand_number or 0) - int(self._variety_segment_started_hand or 0))
+        remaining = max(0, duration - offset)
+        return segment_public_snapshot(
+            active,
+            enabled=self.variety_rotation_enabled,
+            index=self.current_variety_index,
+            offset=offset,
+            hands_remaining=remaining,
+            delayed=self._variety_rotation_delayed,
+        )
+
     # ----- hand lifecycle -------------------------------------------------
 
     def play_pre_flop(self):
+        self._maybe_rotate_variety_segment()
         self._ensure_playable_table()
         self.hand_number += 1
         if self.mode == "tournament":
@@ -630,6 +759,7 @@ class PokerGame:
             "community_cards_raw": list(self.community_cards),
             "pot": self.pot,
             "blinds": {"small": self.small_blind, "big": self.big_blind, "ante": self.ante},
+            "table_program": self.variety_snapshot(),
             "position": self._position_name(player.seat),
             "to_call": to_call,
             "pot_odds_percent": pot_odds,
@@ -641,6 +771,11 @@ class PokerGame:
                 "made_hand": self.describe_evaluation(category, ranks),
                 "tiebreak_ranks": ranks,
                 "pot_odds_percent": pot_odds,
+                "table_style": (self.current_variety_segment or {}).get("style", "standard no-limit hold'em"),
+                "segment_hint": (self.current_variety_segment or {}).get(
+                    "strategy_hint",
+                    "Play legal no-limit hold'em with the current public state.",
+                ),
             },
         }
 
@@ -997,6 +1132,7 @@ class PokerGame:
             "showdown": len([player for player in participants if player.went_to_showdown]) > 1,
             "burned_cards": [self.card_to_dict(card) for card in self.deck.burned],
             "rng_seed": self.rng_seed,
+            "variety": self.variety_snapshot(),
         }
         if self.metrics_store:
             self.metrics_store.record_hand(self.players, winner_names, self._opening_chips, summary=summary)
@@ -1037,6 +1173,12 @@ class PokerGame:
             "tournament_complete": self.tournament_complete,
             "tournament_winner": self.tournament_winner,
             "eliminations": self.eliminations,
+            "variety": {
+                "enabled": self.variety_rotation_enabled,
+                "segment_id": (self.current_variety_segment or {}).get("id"),
+                "segment_index": self.current_variety_index,
+                "segment_started_hand": self._variety_segment_started_hand,
+            },
             "players": [{"id": player.id, "chips": player.chips, "eliminated": player.eliminated} for player in self.players],
         }
         try:
@@ -1054,6 +1196,20 @@ class PokerGame:
             return False
         try:
             document = json.loads(self.checkpoint_path.read_text(encoding="utf-8"))
+            variety = document.get("variety") if isinstance(document.get("variety"), dict) else {}
+            if self.variety_rotation_enabled and variety.get("segment_id"):
+                match = next(
+                    (
+                        (index, segment)
+                        for index, segment in enumerate(self.variety_segments)
+                        if segment.get("id") == variety.get("segment_id")
+                    ),
+                    None,
+                )
+                if match:
+                    index, segment = match
+                    self._activate_variety_segment(segment, index, initial=True, reset_table=False)
+                    self._variety_segment_started_hand = int(variety.get("segment_started_hand", 0) or 0)
             if document.get("mode") != self.mode:
                 return False
             saved = {player["id"]: player for player in document.get("players", [])}
@@ -1066,6 +1222,10 @@ class PokerGame:
             self.tournament_complete = bool(document.get("tournament_complete", False))
             self.tournament_winner = document.get("tournament_winner")
             self.eliminations = list(document.get("eliminations", []))
+            if self.variety_rotation_enabled:
+                restored_index = int(variety.get("segment_index", self.current_variety_index) or 0)
+                self.current_variety_index = max(0, min(len(self.variety_segments) - 1, restored_index))
+                self._variety_segment_started_hand = int(variety.get("segment_started_hand", self._variety_segment_started_hand) or 0)
             for player in self.players:
                 player.chips = int(saved[player.id]["chips"])
                 player.eliminated = bool(saved[player.id].get("eliminated", False))
@@ -1260,6 +1420,7 @@ class PokerGame:
                 "winner": self.tournament_winner,
                 "eliminations": list(self.eliminations),
             } if self.mode == "tournament" else None
+            variety = self.variety_snapshot()
             broadcast_context = build_broadcast_context(
                 metrics=leaderboard,
                 players=players,
@@ -1268,6 +1429,24 @@ class PokerGame:
                 action_history=list(self.action_history)[-20:],
                 hand_number=self.hand_number,
                 stage=self.stage,
+                variety=variety,
+            )
+            presentation = build_presentation_snapshot(
+                players=players,
+                stage=self.stage,
+                pot=self.pot,
+                blinds={"small": self.small_blind, "big": self.big_blind, "ante": self.ante},
+                tournament=tournament_info,
+                action_history=list(self.action_history)[-20:],
+                commentary=list(self.commentary),
+                personality_arcs=broadcast_context["personality_arcs"],
+                program=broadcast_context["program"],
+                variety=variety,
+                hand_number=self.hand_number,
+                casino_bumpers_enabled=self.casino_bumpers_enabled,
+                casino_bumper_duration_ms=self.casino_bumper_duration_ms,
+                casino_bumper_responsible_label=self.casino_bumper_responsible_label,
+                casino_bumper_frequency=self.casino_bumper_frequency,
             )
             return {
                 "schema_version": 2,
@@ -1287,10 +1466,12 @@ class PokerGame:
                 "action_history": list(self.action_history)[-20:],
                 "commentary": list(self.commentary),
                 "leaderboard": leaderboard,
+                "variety": variety,
                 "program": broadcast_context["program"],
                 "league": broadcast_context["league"],
                 "storylines": broadcast_context["storylines"],
                 "personality_arcs": broadcast_context["personality_arcs"],
+                "presentation": presentation,
                 "analysis": {"pending": analysis_pending, "method": "exact-postflop/bounded-monte-carlo-preflop"},
                 "tournament": tournament_info,
                 "services": dict(self.service_health),
