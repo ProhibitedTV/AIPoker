@@ -24,6 +24,14 @@ Expected local URLs:
 
 Use a Browser Source at 1920×1080 pointed at `http://127.0.0.1:8765/overlay`. Enable **Control audio via OBS** to capture browser-source table cues and the `music/` casino bed. Use `?audio=0` or `?music=0` only if you are separately capturing the desktop app audio and need to prevent doubling.
 
+## 24/7 variety rotation
+
+The app rotates through safe table blocks by default so the stream does not sit in one texture forever. The default playlist includes standard sit-and-go, turbo sit-and-go, deep-stack cash, ante splash cash, and high-roller cash spotlight blocks. Cash blocks can reset stacks and change blinds/antes at hand boundaries; tournament blocks wait for the current sit-and-go to complete before changing format. The active block is visible in `/state.variety`, OBS browser-source labels, and `/stream-info`.
+
+Use `--no-variety-rotation` or `variety_rotation_enabled: false` to lock one format. Edit `variety_segments` in `config.json` to tune titles, durations, accents, table skins, cash blinds/antes, starting chips, and tournament hands-per-level.
+
+Safe casino-style bumpers may appear between selected hands. They are decorative broadcast intermissions derived from poker results, not playable slot games. Keep `casino_bumper_responsible_label` enabled on public streams so the no-real-money simulation framing remains visible.
+
 ## Before going live
 
 ```bash
@@ -98,7 +106,7 @@ Confirm:
 ## Do not do this live
 
 - Delete `data/` during a broadcast.
-- Change table size, mode, or blinds mid-hand.
+- Manually change table size, mode, or blinds mid-hand; the built-in variety rotation only changes formats at safe hand/tournament boundaries.
 - Expose the overlay server beyond `127.0.0.1` without authentication and network hardening.
 - Disable the simulation disclaimer on a public stream.
 - Commit unreviewed copyrighted music into `music/`.

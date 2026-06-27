@@ -22,9 +22,16 @@ def parse_args(argv=None):
     parser.add_argument("--overlay-port", type=int)
     parser.add_argument("--no-overlay", action="store_true")
     parser.add_argument("--no-simulation-disclaimer", action="store_true")
+    parser.add_argument("--no-director", action="store_true", help="Disable directed OBS visual moments")
+    parser.add_argument("--overlay-recap-duration", type=float, help="Seconds to hold between-hand recap visuals")
+    parser.add_argument("--overlay-moment-duration", type=float, help="Seconds to hold major moment visuals")
+    parser.add_argument("--overlay-visual-debug", action="store_true", help="Show OBS safe-area and director-mode labels")
+    parser.add_argument("--no-casino-bumpers", action="store_true", help="Disable non-wagering casino-style intermission bumpers")
     parser.add_argument("--mode", choices=("cash", "tournament"))
     parser.add_argument("--players", type=int, choices=range(2, 7), metavar="2-6")
     parser.add_argument("--seed", type=int, help="Deterministic deck seed")
+    parser.add_argument("--no-variety-rotation", action="store_true", help="Keep the same table format/style indefinitely")
+    parser.add_argument("--variety-interval-hands", type=int, help="Fallback hand count for custom variety segments")
     parser.add_argument("--reduced-motion", action="store_true")
     parser.add_argument("--tts", action="store_true")
     parser.add_argument("--mute", action="store_true", help="Disable generated game sound cues")
@@ -58,12 +65,26 @@ def build_settings(args):
         settings.overlay_enabled = False
     if args.no_simulation_disclaimer:
         settings.overlay_disclaimer_enabled = False
+    if args.no_director:
+        settings.overlay_director_enabled = False
+    if args.overlay_recap_duration is not None:
+        settings.overlay_recap_duration_ms = max(1200, int(args.overlay_recap_duration * 1000))
+    if args.overlay_moment_duration is not None:
+        settings.overlay_moment_duration_ms = max(1200, int(args.overlay_moment_duration * 1000))
+    if args.overlay_visual_debug:
+        settings.overlay_visual_debug = True
+    if args.no_casino_bumpers:
+        settings.casino_bumpers_enabled = False
     if args.mode:
         settings.game_mode = args.mode
     if args.players:
         settings.table_size = args.players
     if args.seed is not None:
         settings.rng_seed = args.seed
+    if args.no_variety_rotation:
+        settings.variety_rotation_enabled = False
+    if args.variety_interval_hands is not None:
+        settings.variety_rotation_interval_hands = max(1, int(args.variety_interval_hands))
     if args.reduced_motion:
         settings.reduced_motion = True
     if args.tts:
@@ -107,6 +128,13 @@ def main(argv=None):
         rng_seed=settings.rng_seed,
         hands_per_level=settings.hands_per_level,
         tournament_levels=settings.tournament_levels,
+        variety_rotation_enabled=settings.variety_rotation_enabled,
+        variety_rotation_interval_hands=settings.variety_rotation_interval_hands,
+        variety_segments=settings.variety_segments,
+        casino_bumpers_enabled=settings.casino_bumpers_enabled,
+        casino_bumper_duration_ms=settings.casino_bumper_duration_ms,
+        casino_bumper_responsible_label=settings.casino_bumper_responsible_label,
+        casino_bumper_frequency=settings.casino_bumper_frequency,
         history_path=settings.hand_history_path,
         checkpoint_path=settings.checkpoint_path,
         equity_samples=settings.equity_samples,
@@ -163,6 +191,10 @@ def main(argv=None):
             reduced_motion=settings.reduced_motion,
             audio_enabled=settings.overlay_audio_enabled,
             disclaimer_enabled=settings.overlay_disclaimer_enabled,
+            director_enabled=settings.overlay_director_enabled,
+            recap_duration_ms=settings.overlay_recap_duration_ms,
+            moment_duration_ms=settings.overlay_moment_duration_ms,
+            visual_debug=settings.overlay_visual_debug,
             music_dir=settings.music_path,
             music_enabled=settings.music_enabled,
             sound_effects_dir=settings.sound_effects_path,
