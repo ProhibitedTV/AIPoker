@@ -46,13 +46,14 @@ Confirm:
 - `/health` returns `status: ok`.
 - OBS canvas/output are 1920×1080.
 - The simulation disclaimer is visible.
-- The health badge says `TABLE HEALTHY`, `SAFE FALLBACK`, `RECOVERED`, `AUDIO MUTED`, or `SAVE WARNING` as appropriate.
+- The health badge says `OLLAMA LIVE`, `TABLE HEALTHY`, `SAFE FALLBACK`, `RECOVERED`, `AUDIO MUTED`, or `SAVE WARNING` as appropriate.
 - Audio meters move once the OBS source is refreshed or unlocked with **Interact**.
 - `artifacts/broadcast-smoke/overlay-full.html` and `overlay-compact.html` contain a non-empty table render.
 
 ## Health states
 
-- `TABLE HEALTHY` — overlay, persistence, and audio are ready.
+- `OLLAMA LIVE` — recent player decisions are coming from the local Ollama chat API.
+- `TABLE HEALTHY` — overlay, persistence, and audio are ready while the model source is still warming or not yet observed.
 - `SAFE FALLBACK` — Ollama is offline or cooling down; deterministic legal fallback play continues.
 - `RECOVERED` — the last complete checkpoint was restored after a restart.
 - `AUDIO MUTED` — gameplay continues without sound.
@@ -65,7 +66,7 @@ Confirm:
 
 1. Leave the stream running; the rules engine keeps play legal with fallback decisions.
 2. Restart Ollama: `ollama serve`.
-3. Watch the overlay health badge return from `SAFE FALLBACK`.
+3. Watch the overlay health badge return from `SAFE FALLBACK` to `OLLAMA LIVE`; the seat cards should also switch from `MODEL FALLBACK` to `OLLAMA LIVE` after each player acts again.
 4. Use `python scripts/benchmark_models.py --models <model>` before assigning a new model to a seat.
 
 ### Qt GUI frozen or accidentally closed

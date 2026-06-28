@@ -37,9 +37,9 @@ class ModelRegistry:
             return list(models)
 
     def resolve(self, requested="auto", seat=0):
-        models = self.models()
         if requested and requested != "auto":
             return requested
+        models = self.models()
         preferred = [
             model for model in models
             if any(token in model.lower() for token in ("qwen", "llama", "gemma", "mistral", "command-r"))
@@ -83,7 +83,12 @@ def get_ai_decision(context, community_cards=None, max_retries=2):
 
     profile = context.get("profile", {})
     seat = int(context.get("player", {}).get("seat", 0))
-    model = MODEL_REGISTRY.resolve(profile.get("model", "auto"), seat)
+    requested_model = profile.get("model", "auto")
+    if (not requested_model or requested_model == "auto") and not MODEL_REGISTRY.models():
+        fallback = _fallback_decision(legal, int(context.get("player", {}).get("stack", 0)))
+        fallback.update({"_model_status": "unavailable", "_model": None})
+        return fallback
+    model = MODEL_REGISTRY.resolve(requested_model, seat)
     with _CIRCUIT_LOCK:
         circuit_open = time.monotonic() < _CIRCUIT_OPEN_UNTIL
     if circuit_open:

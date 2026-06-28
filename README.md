@@ -38,7 +38,7 @@ python main.py --mode cash --players 6 --windowed --tts
 python main.py --single-hand --seed 42 --reduced-motion --no-ambience
 ```
 
-Copy `config.example.json` to `config.json` to select per-seat Ollama models, game mode, stacks, tournament levels, pacing, analysis depth, audio channels, persistence paths, and overlay styling. Explicit CLI options override the file. An `auto` model is resolved from installed Ollama models at runtime; if Ollama is unavailable, bounded fallback policy keeps the stream moving and the overlay reports fallback health.
+Copy `config.example.json` to `config.json` to select per-seat Ollama models, game mode, stacks, tournament levels, pacing, analysis depth, audio channels, persistence paths, and overlay styling. Explicit CLI options override the file. An `auto` model is resolved from installed Ollama models at runtime; if Ollama is unavailable, bounded fallback policy keeps the stream moving and the overlay reports fallback health. The real `python main.py` path uses Ollama-backed decisions by default; preview and smoke scripts are fixture drivers for layout testing.
 
 The 24/7 variety rotation is enabled by default for the app. It changes safe hand-boundary table blocks such as championship sit-and-go, turbo sit-and-go, deep-stack cash, ante splash cash, and high-roller cash spotlight so the stream does not become ten hours of identical texture. Each block publishes `/state.variety`, updates the OBS browser-source labels and table skin, and gives AI players a public table-style hint without changing hidden-card privacy. Use `--no-variety-rotation` or `variety_rotation_enabled: false` for one fixed format.
 
@@ -48,9 +48,10 @@ The full browser source is `http://127.0.0.1:8765/overlay`. Configure OBS at **1
 
 For Twitch-ready title, description, panel copy, moderation notes, audio capture, VOD guidance, and a preflight checklist, use the [Twitch Broadcast Guide](docs/TWITCH_BROADCAST_GUIDE.md). For unattended operation, use the [24/7 Operator Runbook](docs/OPERATOR_RUNBOOK.md). Copy-safe live metadata is also available from `http://127.0.0.1:8765/stream-info`. The subtle simulation-only overlay label is enabled by default and can be disabled with `overlay_disclaimer_enabled: false` or `--no-simulation-disclaimer` for private previews.
 
-The header health badge summarizes normal play, safe model fallback, checkpoint recovery, muted audio, persistence warnings, and SSE reconnection without exposing errors or local details. Preview these states with `--health-state normal`, `degraded`, `recovered`, `persistence-warning`, or `audio-muted`; the same sanitized health object is available in `/state` and `/health`.
+The header health badge summarizes normal play, live Ollama decisions, safe model fallback, checkpoint recovery, muted audio, persistence warnings, and SSE reconnection without exposing errors or local details. Each OBS seat card also exposes a compact model-source chip: `OLLAMA LIVE` means that player's recent decision came from the local model API, while `MODEL FALLBACK` means the deterministic legal fallback acted because Ollama was unavailable or cooling down. Preview these states with `--health-state normal`, `degraded`, `recovered`, `persistence-warning`, or `audio-muted`; the same sanitized health object is available in `/state` and `/health`.
 
 - `/state` publishes backward-compatible state plus the version-2 player, pot, tournament, analysis, audio, health, program, league, storyline, and personality-arc schema.
+- `/state.model_activity` and each player's `model_health` identify recent Ollama-vs-fallback decision source, resolved model, and bounded decision counts without exposing prompts.
 - `/events` is a reconnectable server-sent event stream with monotonic IDs for animation and custom integrations.
 - `/health` provides a minimal service probe.
 

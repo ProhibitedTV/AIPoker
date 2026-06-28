@@ -98,6 +98,9 @@ class StreamingFeatureTests(unittest.TestCase):
             self.assertIn("bumper", state["presentation"])
             self.assertIn("enabled", state["presentation"]["bumper"])
             self.assertIn("responsible_label", state["presentation"]["bumper"])
+            self.assertIn("model_activity", state)
+            self.assertEqual(state["model_activity"]["schema_version"], 1)
+            self.assertIn("model_health", state["players"][0])
             self.assertGreaterEqual(len(state["storylines"]), 3)
             self.assertIn(state["players"][0]["id"], state["personality_arcs"])
             self.assertEqual(health["health"], state["health"])
@@ -125,6 +128,9 @@ class StreamingFeatureTests(unittest.TestCase):
             self.assertIn("reduced *", html)
             self.assertIn("SIMULATION ONLY", html)
             self.assertIn('id="healthPill"', html)
+            self.assertIn("modelSignal", html)
+            self.assertIn("MODEL FALLBACK", html)
+            self.assertIn("OLLAMA LIVE", html)
             self.assertIn('id="directorLower"', html)
             self.assertIn('id="equityRace"', html)
             self.assertIn('id="recapCard"', html)
@@ -202,6 +208,7 @@ class StreamingFeatureTests(unittest.TestCase):
         scenarios = [
             ({"ollama": "online"}, {"enabled": True}, "normal"),
             ({"ollama": "fallback"}, {"enabled": True}, "degraded"),
+            ({"ollama": "unavailable"}, {"enabled": True}, "degraded"),
             ({"checkpoint": "restored"}, {"enabled": True}, "recovered"),
             ({"ollama": "online"}, {"enabled": False}, "notice"),
             ({"persistence": "warning"}, {"enabled": True}, "warning"),
@@ -216,6 +223,27 @@ class StreamingFeatureTests(unittest.TestCase):
             self.assertNotIn("traceback", public)
             self.assertNotIn("\\", public)
             self.assertNotIn("/users/", public)
+
+    def test_model_activity_distinguishes_ollama_from_fallback_decisions(self):
+        decisions = [
+            {"action": "call", "amount": 20, "table_talk": "", "_model_status": "online", "_model": "qwen2.5:7b"},
+            {"action": "check", "amount": None, "table_talk": "", "_model_status": "fallback", "_model": "qwen2.5:7b"},
+        ]
+
+        def provider(_context):
+            return decisions.pop(0) if decisions else {"action": "check", "_model_status": "fallback", "_model": "qwen2.5:7b"}
+
+        game = PokerGame(2, decision_provider=provider)
+        game.play_pre_flop()
+        state = game.state_snapshot()
+
+        self.assertEqual(state["model_activity"]["fallback_decisions"], 1)
+        self.assertEqual(state["model_activity"]["ollama_decisions"], 1)
+        self.assertEqual(state["services"]["ollama"], "fallback")
+        self.assertEqual(state["health"]["overall"], "degraded")
+        sources = {player["model_health"]["source"] for player in state["players"]}
+        self.assertIn("ollama", sources)
+        self.assertIn("fallback", sources)
 
     def test_overlay_simulation_disclaimer_can_be_hidden(self):
         game = PokerGame(2, decision_provider=lambda *_: "check")
