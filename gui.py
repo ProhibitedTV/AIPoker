@@ -891,4 +891,6 @@ def run_gui(game, settings, audio_service=None, app=None):
         gui.fullscreen_button.setText("Exit fullscreen")
     else:
         gui.show()
+    if settings.continuous_play and not settings.start_paused:
+        QTimer.singleShot(0, gui.start_game)
     return app.exec_()
