@@ -192,6 +192,18 @@ class PokerGame:
             "persistence": "ready" if self.history_path or self.checkpoint_path else "disabled",
             "checkpoint": "standby" if self.checkpoint_path else "disabled",
         }
+        self.model_activity = {
+            "schema_version": 1,
+            "source": "pending",
+            "status": "unknown",
+            "last_model": None,
+            "last_player_id": None,
+            "last_player_name": None,
+            "last_action": None,
+            "last_updated": None,
+            "ollama_decisions": 0,
+            "fallback_decisions": 0,
+        }
         self.audio_state = {
             "enabled": True,
             "master": 0.35,
@@ -630,7 +642,7 @@ class PokerGame:
             context = self._decision_context(player, legal, current_bet, last_full_raise)
             raw = player.request_decision(context)
             if isinstance(raw, dict) and raw.get("_model_status"):
-                self.service_health["ollama"] = raw["_model_status"]
+                self._record_model_activity(player, raw)
             action, target, table_talk = self._normalize_decision(raw, legal, player)
             old_bet = current_bet
             result = self._apply_action(player, action, target, current_bet)
@@ -778,6 +790,36 @@ class PokerGame:
                 ),
             },
         }
+
+    def _record_model_activity(self, player, decision):
+        """Track whether recent actions came from Ollama or rules-safe fallback."""
+        status = str(decision.get("_model_status", "unknown"))
+        model = decision.get("_model") or player.profile.model or "auto"
+        fallback_statuses = {"fallback", "circuit-open", "offline", "unavailable", "no-model", "timeout"}
+        source = "ollama" if status == "online" else ("fallback" if status in fallback_statuses else status)
+        if source not in {"ollama", "fallback", "preview", "pending"}:
+            source = "fallback" if status not in {"online", "preview"} else status
+        if source == "ollama":
+            player.ollama_decisions += 1
+            self.model_activity["ollama_decisions"] += 1
+        elif source == "fallback":
+            player.fallback_decisions += 1
+            self.model_activity["fallback_decisions"] += 1
+        player.model_status = status
+        player.model_source = source
+        player.resolved_model = str(model)
+        self.service_health["ollama"] = status
+        self.model_activity.update(
+            {
+                "source": source,
+                "status": status,
+                "last_model": str(model),
+                "last_player_id": player.id,
+                "last_player_name": player.name,
+                "last_action": decision.get("action"),
+                "last_updated": datetime.now(timezone.utc).isoformat(),
+            }
+        )
 
     @staticmethod
     def _normalize_decision(raw, legal, player):
@@ -1246,12 +1288,14 @@ class PokerGame:
         audio_enabled = bool(self.audio_state.get("enabled", True))
         if persistence == "warning" or checkpoint == "warning":
             overall, label, detail = "warning", "SAVE WARNING", "Operator check recommended"
-        elif ollama in {"fallback", "circuit-open", "offline", "unavailable"}:
+        elif ollama in {"fallback", "circuit-open", "offline", "unavailable", "no-model", "timeout"}:
             overall, label, detail = "degraded", "SAFE FALLBACK", "Play continues without local AI"
         elif checkpoint == "restored":
             overall, label, detail = "recovered", "RECOVERED", "Checkpoint restored"
         elif not audio_enabled:
             overall, label, detail = "notice", "AUDIO MUTED", "Game remains live"
+        elif ollama == "online":
+            overall, label, detail = "normal", "OLLAMA LIVE", "Local model decisions active"
         else:
             overall, label, detail = "normal", "TABLE HEALTHY", "Local broadcast systems ready"
         return {
@@ -1259,11 +1303,12 @@ class PokerGame:
             "label": label,
             "detail": detail,
             "components": {
-                "model": "online" if ollama in {"online", "preview"} else ("fallback" if ollama in {"fallback", "circuit-open", "offline", "unavailable"} else "warming"),
+                "model": "online" if ollama in {"online", "preview"} else ("fallback" if ollama in {"fallback", "circuit-open", "offline", "unavailable", "no-model", "timeout"} else "warming"),
                 "overlay": self.service_health.get("overlay", "unknown"),
                 "audio": "ready" if audio_enabled else "muted",
                 "persistence": persistence,
                 "checkpoint": checkpoint,
+                "decision_source": self.model_activity.get("source", "pending"),
             },
         }
 
@@ -1382,6 +1427,13 @@ class PokerGame:
                             "model": player.profile.model,
                             "color": player.profile.color,
                         },
+                        "model_health": {
+                            "source": player.model_source,
+                            "status": player.model_status,
+                            "resolved_model": player.resolved_model,
+                            "ollama_decisions": player.ollama_decisions,
+                            "fallback_decisions": player.fallback_decisions,
+                        },
                         "chips": player.chips,
                         "current_bet": player.current_bet,
                         "street_commitment": player.current_bet,
@@ -1476,6 +1528,7 @@ class PokerGame:
                 "tournament": tournament_info,
                 "services": dict(self.service_health),
                 "health": self.health_snapshot(),
+                "model_activity": dict(self.model_activity),
                 "audio": dict(self.audio_state),
             }
 

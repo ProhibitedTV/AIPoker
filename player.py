@@ -64,6 +64,11 @@ class AIPlayer:
     went_to_showdown: bool = False
     won_at_showdown: bool = False
     all_in_counted: bool = False
+    model_status: str = "pending"
+    model_source: str = "pending"
+    resolved_model: str = "auto"
+    ollama_decisions: int = 0
+    fallback_decisions: int = 0
 
     def __post_init__(self):
         self.profile = self.profile or PlayerProfile(f"seat-{self.seat + 1}", self.name)
