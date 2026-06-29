@@ -52,6 +52,24 @@ def test_structured_decisions_require_legal_bounded_targets():
     assert _validate_decision({"action": "call", "amount": 999}, legal)["amount"] == 40
 
 
+def test_structured_decisions_tolerate_common_local_model_json_drift():
+    legal = {
+        "check": {"action": "check", "target": None},
+        "raise": {"action": "raise", "min_target": 80, "max_target": 500},
+    }
+    assert _validate_decision({"action_check": "null", "amount": None, "table_talk": []}, legal) == {
+        "action": "check",
+        "amount": None,
+        "table_talk": "",
+    }
+    assert _validate_decision({"raise": True, "amount": 120, "table_talk": {"line": "Neon pressure."}}, legal) == {
+        "action": "raise",
+        "amount": 120,
+        "table_talk": "Neon pressure.",
+    }
+    assert _validate_decision({"action_fold": True}, legal) is None
+
+
 def test_compatibility_parser_recognizes_complete_action_vocabulary():
     assert sanitize_decision("I CALL.") == "call"
     assert sanitize_decision("all-in") == "all_in"
