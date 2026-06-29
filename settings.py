@@ -68,6 +68,9 @@ class AppSettings:
     overlay_audio_enabled: bool = True
     overlay_disclaimer_enabled: bool = True
     overlay_director_enabled: bool = True
+    overlay_rotation_enabled: bool = True
+    overlay_rotation_interval_ms: int = 9000
+    overlay_narration_enabled: bool = False
     overlay_recap_duration_ms: int = 7500
     overlay_moment_duration_ms: int = 6200
     overlay_visual_debug: bool = False
@@ -105,6 +108,7 @@ class AppSettings:
             self.variety_segments = default_variety_segments()
         self.overlay_recap_duration_ms = max(1200, int(self.overlay_recap_duration_ms))
         self.overlay_moment_duration_ms = max(1200, int(self.overlay_moment_duration_ms))
+        self.overlay_rotation_interval_ms = max(5000, int(self.overlay_rotation_interval_ms))
         self.casino_bumper_duration_ms = max(4000, min(8000, int(self.casino_bumper_duration_ms)))
         if self.casino_bumper_frequency not in {"selected_hands", "every_hand", "off"}:
             self.casino_bumper_frequency = "selected_hands"

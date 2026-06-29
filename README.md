@@ -81,6 +81,8 @@ The OBS scene uses a seated casino-table layout for 2–6 players, with a dealer
 
 The broadcast director layer is enabled by default. `/state.presentation` tells the OBS page when to use table, decision, big-pot, all-in, showdown, or recap presentation. Use `?director=0` for a plain table source and `?visual_debug=1` to show safe-area/director labels while tuning OBS. `python scripts/visual_smoke.py` generates and checks deterministic visual fixtures for every director mode.
 
+The OBS browser source is the canonical viewer-facing show surface; the Qt window is the local control room. To keep the stream varied without switching scenes, the overlay includes a broadcast-desk rotator over the live felt. It cycles public-state cards for table action, equity, stack standings, model health, program/story context, and sanitized table talk while the hand continues underneath. Use `overlay_rotation_enabled`, `overlay_rotation_interval_ms`, and `overlay_narration_enabled` in config, or URL overrides like `?rotation=0`, `?rotation_ms=12000`, and `?narration=1` / `?tts=1`, to tune the rotator and optional browser speech narration.
+
 Safe casino-style bumpers are enabled by default between selected hands. They add short decorative reel, jackpot-light, chip-rain, winner, streak, chip-leader, and next-format intermissions derived from poker results only. They are not playable slots: there are no credits, balances, buttons, deposits, cash-outs, or wager prompts, and the bumper keeps the simulation-only/no-real-money label visible. Use `--no-casino-bumpers` or `casino_bumpers_enabled: false` to disable them.
 
 ## Rules and house policy

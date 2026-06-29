@@ -226,7 +226,7 @@ class PokerGUI(QMainWindow):
         brand_column = QVBoxLayout()
         brand = QLabel("AI POKER")
         brand.setObjectName("brand")
-        subtitle = QLabel("LOCAL MODELS  /  LIVE TABLE")
+        subtitle = QLabel("CONTROL ROOM  /  OBS SHOW SURFACE")
         subtitle.setObjectName("eyebrow")
         brand_column.addWidget(brand)
         brand_column.addWidget(subtitle)
@@ -330,7 +330,7 @@ class PokerGUI(QMainWindow):
         self.winner_spotlight_label.setWordWrap(True)
         self.winner_spotlight_label.hide()
         board_layout.addWidget(self.winner_spotlight_label)
-        self.commentary_banner = QLabel("Table ready. Start the broadcast when Ollama is online.")
+        self.commentary_banner = QLabel("Control room ready. The OBS browser source is the viewer-facing show.")
         self.commentary_banner.setObjectName("commentaryBanner")
         self.commentary_banner.setAlignment(Qt.AlignCenter)
         self.commentary_banner.setWordWrap(True)
@@ -687,7 +687,7 @@ class PokerGUI(QMainWindow):
         )
 
         latest_commentary = list(self.game.commentary)[-1:] or [
-            "Table ready. Start the broadcast when Ollama is online."
+            "Control room ready. The OBS browser source is the viewer-facing show."
         ]
         self.commentary_banner.setText(latest_commentary[0])
         winner_lines = []
