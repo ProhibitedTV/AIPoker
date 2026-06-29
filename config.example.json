@@ -73,6 +73,8 @@
   "animation_duration_ms": 720,
   "continuous_play": true,
   "start_paused": false,
+  "allow_multiple_instances": false,
+  "single_instance_lock_path": "data/aipoker.pid",
   "fullscreen": true,
   "reduced_motion": false,
   "classic_two_color_cards": true,

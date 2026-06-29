@@ -1,6 +1,8 @@
 """Command-line entry point for AI Poker."""
 
 import argparse
+import os
+from pathlib import Path
 import sys
 
 from audio import AudioService
@@ -9,6 +11,87 @@ from game import PokerGame
 from metrics import MetricsStore
 from overlay_server import OverlayServer
 from settings import AppSettings
+
+
+class InstanceLock:
+    """Best-effort local guard against launching two production tables at once."""
+
+    def __init__(self, path, pid):
+        self.path = Path(path)
+        self.pid = int(pid)
+        self.acquired = True
+
+    def release(self):
+        if not self.acquired:
+            return
+        try:
+            current = self.path.read_text(encoding="utf-8").strip()
+        except OSError:
+            self.acquired = False
+            return
+        if current == str(self.pid):
+            try:
+                self.path.unlink()
+            except FileNotFoundError:
+                pass
+        self.acquired = False
+
+
+def _pid_is_running(pid):
+    try:
+        pid = int(pid)
+    except (TypeError, ValueError):
+        return False
+    if pid <= 0:
+        return False
+    if pid == os.getpid():
+        return True
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return True
+
+
+def acquire_instance_lock(lock_path, allow_multiple=False, pid=None, pid_checker=None):
+    """Create a PID lock so OBS/audio don't accidentally point at split processes."""
+    if allow_multiple or not lock_path:
+        return None
+    path = Path(lock_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pid = int(pid or os.getpid())
+    pid_checker = pid_checker or _pid_is_running
+
+    for _ in range(2):
+        try:
+            fd = os.open(str(path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            try:
+                existing_raw = path.read_text(encoding="utf-8").strip()
+                existing_pid = int(existing_raw)
+            except (OSError, ValueError):
+                existing_pid = 0
+            if existing_pid and pid_checker(existing_pid):
+                raise RuntimeError(
+                    f"AI Poker already appears to be running as PID {existing_pid}. "
+                    f"Stop that process or relaunch with --allow-multiple if this is intentional."
+                )
+            try:
+                path.unlink()
+            except FileNotFoundError:
+                pass
+            except OSError as exc:
+                raise RuntimeError(f"Could not replace stale instance lock at {path}: {exc}") from exc
+            continue
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(f"{pid}\n")
+        return InstanceLock(path, pid)
+
+    raise RuntimeError(f"Could not acquire instance lock at {path}")
 
 
 def parse_args(argv=None):
@@ -33,6 +116,8 @@ def parse_args(argv=None):
     parser.add_argument("--mode", choices=("cash", "tournament"))
     parser.add_argument("--players", type=int, choices=range(2, 7), metavar="2-6")
     parser.add_argument("--seed", type=int, help="Deterministic deck seed")
+    parser.add_argument("--allow-multiple", action="store_true", help="Permit more than one local AI Poker process")
+    parser.add_argument("--single-instance-lock", help="PID lock path used to prevent duplicate OBS/audio owners")
     parser.add_argument("--no-variety-rotation", action="store_true", help="Keep the same table format/style indefinitely")
     parser.add_argument("--variety-interval-hands", type=int, help="Fallback hand count for custom variety segments")
     parser.add_argument("--reduced-motion", action="store_true")
@@ -90,6 +175,10 @@ def build_settings(args):
         settings.table_size = args.players
     if args.seed is not None:
         settings.rng_seed = args.seed
+    if args.allow_multiple:
+        settings.allow_multiple_instances = True
+    if args.single_instance_lock:
+        settings.single_instance_lock_path = args.single_instance_lock
     if args.no_variety_rotation:
         settings.variety_rotation_enabled = False
     if args.variety_interval_hands is not None:
@@ -124,6 +213,15 @@ def main(argv=None):
     from PyQt5.QtWidgets import QApplication
 
     settings = build_settings(parse_args(argv))
+    try:
+        instance_lock = acquire_instance_lock(
+            settings.single_instance_lock_path,
+            allow_multiple=settings.allow_multiple_instances,
+        )
+    except RuntimeError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+
     app = QApplication.instance() or QApplication(sys.argv)
     metrics = MetricsStore(settings.stats_path)
     game = PokerGame(
@@ -222,6 +320,8 @@ def main(argv=None):
         game.close()
         if overlay:
             overlay.close()
+        if instance_lock:
+            instance_lock.release()
 
 
 if __name__ == "__main__":

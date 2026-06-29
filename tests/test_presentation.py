@@ -120,6 +120,8 @@ def test_casino_bumper_winner_jackpot_and_disabled_state():
     result = snapshot(players, stage="Showdown", hand_number=3, commentary=["Atlas wins 120."])
     assert result["bumper"]["enabled"]
     assert result["bumper"]["kind"] == "winner_jackpot"
+    assert result["bumper"]["visual_family"] == "winner_cards"
+    assert "previous poker hand" in result["bumper"]["relevance"]
     assert result["bumper"]["responsible_label"]
 
     disabled = snapshot(players, stage="Showdown", hand_number=3, casino_bumpers_enabled=False)
@@ -131,12 +133,24 @@ def test_casino_bumper_pot_reels_for_big_and_split_pots():
     players[0]["action"] = "Won 520"
     big = snapshot(players, stage="Showdown", hand_number=1, commentary=["Atlas wins 520."])
     assert big["bumper"]["kind"] == "pot_reels"
+    assert big["bumper"]["visual_family"] == "poker_reels"
     assert big["bumper"]["stats"]["amount"] == 520
 
     players[1]["action"] = "Won 120"
     split = snapshot(players, stage="Showdown", hand_number=1, commentary=["Atlas and Vega share the pot."])
     assert split["bumper"]["kind"] == "pot_reels"
     assert split["bumper"]["stats"]["winner_count"] == 2
+
+    all_in = snapshot(
+        players,
+        stage="Showdown",
+        hand_number=2,
+        commentary=["Atlas wins the all-in pot."],
+        action_history=[{"seat": 0, "action": "all_in", "amount": 2000}],
+    )
+    assert all_in["bumper"]["kind"] == "pot_reels"
+    assert all_in["bumper"]["visual_family"] == "equity_wheel"
+    assert "All-in result" in all_in["bumper"]["relevance"]
 
 
 def test_casino_bumper_hot_streak_chip_leader_and_next_format():
@@ -150,12 +164,14 @@ def test_casino_bumper_hot_streak_chip_leader_and_next_format():
         personality_arcs={"atlas": {"confidence": 75}, "vega": {"confidence": 20}},
     )
     assert hot["bumper"]["kind"] == "hot_streak"
+    assert hot["bumper"]["visual_family"] == "momentum_meter"
 
     players = base_players()
     players[0]["chips"] = 3100
     players[1]["action"] = "Won 120"
     leader = snapshot(players, stage="Showdown", hand_number=5, commentary=["Vega wins 120."])
     assert leader["bumper"]["kind"] == "chip_leader"
+    assert leader["bumper"]["visual_family"] == "standings_ladder"
     assert leader["bumper"]["stats"]["leader"] == "Atlas"
 
     next_format = snapshot(
@@ -164,3 +180,4 @@ def test_casino_bumper_hot_streak_chip_leader_and_next_format():
         variety={"enabled": True, "title": "Turbo Pressure Sit & Go", "hands_remaining": 1, "tempo": "turbo"},
     )
     assert next_format["bumper"]["kind"] == "next_format"
+    assert next_format["bumper"]["visual_family"] == "format_marquee"

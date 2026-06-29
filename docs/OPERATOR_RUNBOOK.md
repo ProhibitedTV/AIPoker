@@ -32,10 +32,25 @@ Use `--no-variety-rotation` or `variety_rotation_enabled: false` to lock one for
 
 Safe casino-style bumpers may appear between selected hands. They are decorative broadcast intermissions derived from poker results, not playable slot games. Keep `casino_bumper_responsible_label` enabled on public streams so the no-real-money simulation framing remains visible.
 
+The bumper variety should always explain the poker on screen. Reel, wheel, card, standings, and marquee treatments are visual metaphors for the previous hand, all-in pressure, chip movement, leader board, hot streak, or next scheduled poker block. If a bumper feels disconnected from the hand, disable bumpers until the presentation data is fixed.
+
+## Production launch guardrails
+
+The app writes a local PID lock at `data/aipoker.pid` by default. This prevents accidental duplicate launches where one process owns the OBS port and another process owns audio. Use `--allow-multiple` only for deliberate preview/testing work.
+
+Run the production preflight after starting the app and before leaving the stream unattended:
+
+```bash
+python scripts/production_preflight.py --url http://127.0.0.1:8765
+```
+
+Warnings are acceptable only when understood. For example, Ollama being closed is a warning because legal fallback keeps the broadcast moving, but it means AI entertainment is not fully live yet. Use `--strict-ollama` when launching a show that must not begin until local model decisions are visible.
+
 ## Before going live
 
 ```bash
 python scripts/broadcast_smoke.py
+python scripts/production_preflight.py --url http://127.0.0.1:8765
 python scripts/soak_test.py --hands 10000 --players 6
 python scripts/benchmark_models.py --fixture
 python scripts/replay_hand.py --list
@@ -81,6 +96,12 @@ Confirm:
 1. Click **Refresh** on the Browser Source.
 2. If audio is silent, click **Interact** and click inside the source once to unlock browser autoplay.
 3. If the source still shows old content, verify `http://127.0.0.1:8765/overlay` in a browser.
+
+### Audio is playing but the table is missing
+
+1. Check that only one AI Poker process is running. New production builds prevent duplicate launches with `data/aipoker.pid`, but older/stale processes may still exist.
+2. Open `http://127.0.0.1:8765/health`. If it fails, restart the app and let the PID lock clear normally.
+3. Refresh the OBS browser source after the overlay URL responds.
 
 ### Audio doubled or missing
 

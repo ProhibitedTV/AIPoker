@@ -1,4 +1,6 @@
-from main import build_settings, parse_args
+import pytest
+
+from main import acquire_instance_lock, build_settings, parse_args
 from scripts.preview_overlay import apply_health_fixture, parse_args as parse_preview_args
 from game import PokerGame
 
@@ -74,6 +76,33 @@ def test_variety_rotation_cli_overrides(tmp_path):
     )
     assert not settings.variety_rotation_enabled
     assert settings.variety_rotation_interval_hands == 9
+
+
+def test_single_instance_cli_overrides(tmp_path):
+    lock_path = tmp_path / "show.pid"
+    settings = build_settings(
+        parse_args(
+            [
+                "--config", str(tmp_path / "missing.json"),
+                "--allow-multiple",
+                "--single-instance-lock", str(lock_path),
+            ]
+        )
+    )
+    assert settings.allow_multiple_instances
+    assert settings.single_instance_lock_path == str(lock_path)
+
+
+def test_single_instance_lock_replaces_stale_and_blocks_running_pid(tmp_path):
+    lock_path = tmp_path / "aipoker.pid"
+    lock = acquire_instance_lock(lock_path, pid=1234, pid_checker=lambda _pid: False)
+    assert lock_path.read_text(encoding="utf-8").strip() == "1234"
+    lock.release()
+    assert not lock_path.exists()
+
+    lock_path.write_text("9999\n", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="already appears to be running"):
+        acquire_instance_lock(lock_path, pid=1234, pid_checker=lambda _pid: True)
 
 
 def test_casino_bumper_cli_override(tmp_path):
