@@ -108,6 +108,7 @@ def build_presentation_snapshot(
         tournament=tournament,
         variety=variety,
         recap=recap,
+        action_history=action_history,
         personality_arcs=personality_arcs,
         big_blind=big_blind,
         hand_number=hand_number,
@@ -207,6 +208,7 @@ def _bumper_payload(
     tournament,
     variety,
     recap,
+    action_history,
     personality_arcs,
     big_blind,
     hand_number,
@@ -224,6 +226,8 @@ def _bumper_payload(
         "duration_ms": duration_ms,
         "seed": int(hand_number or 0),
         "stats": {},
+        "visual_family": "",
+        "relevance": "",
         "responsible_label": bool(responsible_label),
     }
     if not enabled or str(frequency or "selected_hands").lower() in {"off", "disabled", "never"}:
@@ -233,6 +237,7 @@ def _bumper_payload(
 
     amount = int(recap.get("amount", 0) or 0)
     split = len(winners) > 1
+    all_in_hand = any(str(record.get("action", "")).lower() == "all_in" for record in (action_history or []))
     winner = winners[0] if winners else None
     leader = max(
         (player for player in players if not player.get("eliminated")),
@@ -245,7 +250,7 @@ def _bumper_payload(
     )
     big_pot = amount >= max(1, big_blind) * 20
     hot_streak = winner and int(winner_arc.get("confidence", 0) or 0) >= 70
-    selected = next_format or split or big_pot or hot_streak or int(hand_number or 0) % 3 == 0 or int(hand_number or 0) % 5 == 0
+    selected = next_format or split or all_in_hand or big_pot or hot_streak or int(hand_number or 0) % 3 == 0 or int(hand_number or 0) % 5 == 0
     if str(frequency or "selected_hands").lower() == "selected_hands" and not selected:
         return disabled
 
@@ -257,6 +262,10 @@ def _bumper_payload(
         kind = "pot_reels"
         title = "Split pot reel"
         subtitle = f"{' + '.join(player.get('name', 'Player') for player in winners)} share {amount:,} chips."
+    elif all_in_hand:
+        kind = "pot_reels"
+        title = "All-in pressure wheel"
+        subtitle = "The intermission tracks the all-in pot, winner, and hand result."
     elif big_pot:
         kind = "pot_reels"
         title = "Monster pot reel"
@@ -278,7 +287,17 @@ def _bumper_payload(
         title = "Chip leader board"
         subtitle = f"{(leader or {}).get('name', 'The leader')} controls the biggest stack."
 
-    symbols = _bumper_symbols(kind, winner, leader, recap, variety)
+    visual_family = _bumper_visual_family(kind, all_in_hand=all_in_hand)
+    relevance = _bumper_relevance(
+        kind=kind,
+        winner=winner,
+        leader=leader,
+        recap=recap,
+        variety=variety,
+        amount=amount,
+        all_in_hand=all_in_hand,
+    )
+    symbols = _bumper_symbols(kind, winner, leader, recap, variety, visual_family=visual_family)
     seed = (int(hand_number or 0) * 131 + amount * 17 + len(winners) * 19 + len(kind) * 23) % 9973
     return {
         "enabled": True,
@@ -287,6 +306,8 @@ def _bumper_payload(
         "subtitle": subtitle,
         "duration_ms": duration_ms,
         "seed": seed,
+        "visual_family": visual_family,
+        "relevance": relevance,
         "stats": {
             "symbols": symbols,
             "amount": amount,
@@ -299,11 +320,42 @@ def _bumper_payload(
     }
 
 
-def _bumper_symbols(kind, winner, leader, recap, variety):
+def _bumper_visual_family(kind, all_in_hand=False):
+    if all_in_hand:
+        return "equity_wheel"
+    return {
+        "winner_jackpot": "winner_cards",
+        "pot_reels": "poker_reels",
+        "hot_streak": "momentum_meter",
+        "chip_leader": "standings_ladder",
+        "next_format": "format_marquee",
+    }.get(kind, "poker_recap")
+
+
+def _bumper_relevance(*, kind, winner, leader, recap, variety, amount, all_in_hand=False):
+    winner_name = (winner or {}).get("name") or "The winner"
+    leader_name = (leader or {}).get("name") or "The chip leader"
+    hand = recap.get("hand") or "the winning hand"
+    if kind == "next_format":
+        return f"Coming next: {variety.get('title') or 'a fresh poker table block'}."
+    if all_in_hand:
+        return f"All-in result: {winner_name} takes {amount:,} chips with {hand}."
+    if kind == "pot_reels":
+        return f"Pot recap: {amount:,} fictional chips were awarded from the last poker hand."
+    if kind == "hot_streak":
+        return f"Momentum watch: {winner_name} just won with {hand}."
+    if kind == "chip_leader":
+        return f"Standings watch: {leader_name} is currently out front."
+    return f"Winner recap: {winner_name} won the previous poker hand with {hand}."
+
+
+def _bumper_symbols(kind, winner, leader, recap, variety, visual_family=""):
     winner_initial = str((winner or {}).get("name") or "AI")[:1].upper()
     leader_initial = str((leader or {}).get("name") or "L")[:1].upper()
     hand = str(recap.get("hand") or "Hand").split(" ")[0][:5].upper()
     format_label = str(variety.get("tempo") or "LIVE")[:5].upper()
+    if visual_family == "equity_wheel":
+        return ["ALL", "IN", winner_initial]
     by_kind = {
         "winner_jackpot": ["★", winner_initial, hand],
         "pot_reels": ["♣", "POT", "♦"],

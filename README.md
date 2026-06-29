@@ -42,6 +42,8 @@ Copy `config.example.json` to `config.json` to select per-seat Ollama models, ga
 
 The 24/7 variety rotation is enabled by default for the app. It changes safe hand-boundary table blocks such as championship sit-and-go, turbo sit-and-go, deep-stack cash, ante splash cash, and high-roller cash spotlight so the stream does not become ten hours of identical texture. Each block publishes `/state.variety`, updates the OBS browser-source labels and table skin, and gives AI players a public table-style hint without changing hidden-card privacy. Use `--no-variety-rotation` or `variety_rotation_enabled: false` for one fixed format.
 
+Casino-floor variety is presentation-only and always tied back to the poker being shown. Between selected hands, the OBS overlay may use reel, wheel, card, standings, or marquee visual language to recap the winner, pot, hand class, all-in pressure, chip leader, hot streak, or next poker format. These are not playable side games: there are no credits, balances, buttons, deposits, cash-outs, wager prompts, or reward loops.
+
 ## OBS and audio
 
 The full browser source is `http://127.0.0.1:8765/overlay`. Configure OBS at **1920×1080** with the same frame rate as the stream. Use `?compact=1` for the compact panel. The server binds only to localhost unless configured otherwise.
@@ -56,6 +58,14 @@ The header health badge summarizes normal play, live Ollama decisions, safe mode
 - `/health` provides a minimal service probe.
 
 The OBS browser source now carries table cues and the casino music bed by default, so OBS's **Control audio via OBS** option can mix the `AI Poker` source directly. Use `?audio=0`, `?music=0`, or `overlay_audio_enabled: false` if you instead capture the desktop app through OBS Application Audio Capture and want to prevent doubled sound. Master, ambience, effects, music, and voice levels are separate, and nonessential sound is ducked around speech.
+
+Before a long production run, use the preflight checker:
+
+```bash
+python scripts/production_preflight.py --url http://127.0.0.1:8765
+```
+
+Add `--strict-ollama` when you want launch to fail unless local Ollama models and recent live Ollama decisions are visible. Without strict mode, an Ollama outage is a warning because the stream remains rules-safe and visibly labeled as fallback.
 
 Stream-safe WAV tracks placed in `music/` play as a shuffled casino music bed by default in both the desktop mixer and the OBS browser source. Short samples in `sound_effects/` add tactile broadcast Foley; `card_flip.mp3` is served to the OBS browser source for card/deck reveals, and a matching `card_flip.wav` can override generated desktop card Foley. Use `music_enabled`, `music_path`, `music_volume`, `music_shuffle`, and `sound_effects_path` in config, or launch with `--no-music`, `--music-path`, and `--music-volume`, to tune the playlist without changing the Foley or voice mix.
 
@@ -83,7 +93,7 @@ The broadcast director layer is enabled by default. `/state.presentation` tells 
 
 The OBS browser source is the canonical viewer-facing show surface; the Qt window is the local control room. To keep the stream varied without switching scenes, the overlay includes a broadcast-desk rotator over the live felt. It cycles public-state cards for table action, equity, stack standings, model health, program/story context, and sanitized table talk while the hand continues underneath. Use `overlay_rotation_enabled`, `overlay_rotation_interval_ms`, and `overlay_narration_enabled` in config, or URL overrides like `?rotation=0`, `?rotation_ms=12000`, and `?narration=1` / `?tts=1`, to tune the rotator and optional browser speech narration.
 
-Safe casino-style bumpers are enabled by default between selected hands. They add short decorative reel, jackpot-light, chip-rain, winner, streak, chip-leader, and next-format intermissions derived from poker results only. They are not playable slots: there are no credits, balances, buttons, deposits, cash-outs, or wager prompts, and the bumper keeps the simulation-only/no-real-money label visible. Use `--no-casino-bumpers` or `casino_bumpers_enabled: false` to disable them.
+Safe casino-style bumpers are enabled by default between selected hands. They add short decorative reel, wheel, jackpot-light, chip-rain, winner, streak, chip-leader, all-in, and next-format intermissions derived from poker results only. Each bumper carries a relevance line explaining which pot, player, hand, standing, or upcoming table block it represents. They are not playable slots: there are no credits, balances, buttons, deposits, cash-outs, or wager prompts, and the bumper keeps the simulation-only/no-real-money label visible. Use `--no-casino-bumpers` or `casino_bumpers_enabled: false` to disable them.
 
 ## Rules and house policy
 

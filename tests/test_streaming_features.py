@@ -135,6 +135,7 @@ class StreamingFeatureTests(unittest.TestCase):
             self.assertIn('id="equityRace"', html)
             self.assertIn('id="recapCard"', html)
             self.assertIn('id="casinoBumper"', html)
+            self.assertIn('id="bumperRelevance"', html)
             self.assertIn('id="broadcastRotator"', html)
             self.assertIn("renderBroadcastRotator", html)
             self.assertIn("Equity studio", html)

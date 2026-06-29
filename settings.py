@@ -41,6 +41,8 @@ class AppSettings:
     animation_duration_ms: int = 720
     continuous_play: bool = True
     start_paused: bool = False
+    allow_multiple_instances: bool = False
+    single_instance_lock_path: str = "data/aipoker.pid"
     fullscreen: bool = True
     game_mode: str = "tournament"
     table_size: int = 4
