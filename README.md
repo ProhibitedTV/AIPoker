@@ -8,7 +8,7 @@ The engine is designed to be auditable and recoverable for 24/7 operation. It en
 
 - Complete street-based No-Limit Hold'em betting with calls, minimum raises, short all-ins, reopening rules, uncalled returns, and automatic all-in runouts
 - Correct heads-up and multiway action order, burn cards, best-five evaluation, main/side pots, split pots, and odd-chip awards
-- Four-player named local cast by default—Atlas, Vega, Nova, and Echo—with configurable models, personas, colors, voices, and temperatures
+- Four-player named local cast by default—Atlas, Vega, Nova, and Echo—with configurable models, personas, colors, voices, temperatures, and OBS avatar identities
 - Cash mode with fixed stakes and zero-stack reloads, plus escalating hand-count sit-and-go tournaments with big-blind antes and automatic restarts
 - Spectator-visible hole cards and live equity, while each Ollama prompt receives only that player's private cards and public table information
 - Persistent schema-v2 statistics: VPIP, PFR, three-bets, aggression, showdown results, all-ins, tournament finishes, notable hands, and chip history
@@ -35,6 +35,7 @@ Useful launch overrides:
 ```bash
 python main.py --mode tournament --players 4 --continuous-play
 python main.py --mode cash --players 6 --windowed --tts
+python main.py --headless --continuous-play
 python main.py --single-hand --seed 42 --reduced-motion --no-ambience
 ```
 
@@ -47,6 +48,8 @@ Casino-floor variety is presentation-only and always tied back to the poker bein
 ## OBS and audio
 
 The full browser source is `http://127.0.0.1:8765/overlay`. Configure OBS at **1920×1080** with the same frame rate as the stream. Use `?compact=1` for the compact panel. The server binds only to localhost unless configured otherwise.
+
+For production OBS browser-source operation, prefer `python main.py --headless --continuous-play`. Headless mode runs the same deterministic poker engine, Ollama decision path, audio state, `/state`, `/events`, and `/overlay` server without depending on a visible Qt control-room window. Use the normal Qt app when you want local controls; use headless when OBS is the product surface.
 
 For Twitch-ready title, description, panel copy, moderation notes, audio capture, VOD guidance, and a preflight checklist, use the [Twitch Broadcast Guide](docs/TWITCH_BROADCAST_GUIDE.md). For unattended operation, use the [24/7 Operator Runbook](docs/OPERATOR_RUNBOOK.md). Copy-safe live metadata is also available from `http://127.0.0.1:8765/stream-info`. The subtle simulation-only overlay label is enabled by default and can be disabled with `overlay_disclaimer_enabled: false` or `--no-simulation-disclaimer` for private previews.
 
@@ -88,6 +91,8 @@ Only newly dealt cards flip, only changed wagers slide chips forward, and winner
 ### Audience-first spectator design
 
 The OBS scene uses a seated casino-table layout for 2–6 players, with a dealer/deck tray, visible pot chips, per-seat stack chips, committed wager chips, and a bottom sports ticker for action, program segment, league context, and rotating story beats. It explains each street in plain English, expands dealer and blind abbreviations, identifies the acting player, describes the immediate choice, and labels equity as “chance to win.” A five-step hand tracker, chip-leader marker, big-pot and all-in tension cues, newcomer-friendly statistics, winner takeover, and restrained celebration animation keep the story legible even for viewers who have never played poker. These layers are event-driven, so idle polling never replays a card, chip, action, or award animation.
+
+Player identity is presentation metadata on top of the poker state. The default cast now carries scalable OBS avatar archetypes, sigils, and short taglines, rendered as cyberpunk neon medallions inside each seat card. This gives the table an underground AI-casino feel while keeping the cards, action, pot, and odds as the highest-contrast elements on screen.
 
 The broadcast director layer is enabled by default. `/state.presentation` tells the OBS page when to use table, decision, big-pot, all-in, showdown, or recap presentation. Use `?director=0` for a plain table source and `?visual_debug=1` to show safe-area/director labels while tuning OBS. `python scripts/visual_smoke.py` generates and checks deterministic visual fixtures for every director mode.
 

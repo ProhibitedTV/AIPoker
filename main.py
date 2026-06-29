@@ -4,6 +4,8 @@ import argparse
 import os
 from pathlib import Path
 import sys
+import time
+import traceback
 
 from audio import AudioService
 from commentary import CommentaryService
@@ -94,6 +96,13 @@ def acquire_instance_lock(lock_path, allow_multiple=False, pid=None, pid_checker
     raise RuntimeError(f"Could not acquire instance lock at {path}")
 
 
+def safe_print(message, file=None):
+    try:
+        print(message, file=file or sys.stdout, flush=True)
+    except Exception:
+        pass
+
+
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Run the AI Poker spectator table")
     parser.add_argument("--config", default="config.json", help="JSON settings file")
@@ -132,6 +141,7 @@ def parse_args(argv=None):
     parser.add_argument("--music-volume", type=float, help="Music-bed volume from 0.0 to 1.0")
     parser.add_argument("--music-path", help="Directory containing stream-safe WAV music tracks")
     parser.add_argument("--windowed", action="store_true")
+    parser.add_argument("--headless", action="store_true", help="Run the OBS overlay/game loop without the Qt control room")
     continuous = parser.add_mutually_exclusive_group()
     continuous.add_argument("--continuous-play", action="store_true")
     continuous.add_argument("--single-hand", action="store_true")
@@ -210,6 +220,8 @@ def build_settings(args):
         settings.music_path = args.music_path
     if args.windowed:
         settings.fullscreen = False
+    if args.headless:
+        settings.headless = True
     if args.continuous_play:
         settings.continuous_play = True
     if args.single_hand:
@@ -217,10 +229,43 @@ def build_settings(args):
     return settings
 
 
-def main(argv=None):
-    from gui import run_gui
-    from PyQt5.QtWidgets import QApplication
+def _remaining_players(game):
+    return sum(player.is_active and not player.folded for player in game.players)
 
+
+def _sleep_ms(milliseconds):
+    if milliseconds > 0:
+        time.sleep(milliseconds / 1000)
+
+
+def run_headless(game, settings):
+    """Drive the same engine as the GUI for OBS-only 24/7 operation."""
+    safe_print("Headless OBS runner active. Press Ctrl+C to stop.")
+    while True:
+        try:
+            game.play_pre_flop()
+            if _remaining_players(game) > 1:
+                _sleep_ms(settings.stage_delay_ms)
+                game.play_flop()
+            if _remaining_players(game) > 1:
+                _sleep_ms(settings.stage_delay_ms)
+                game.play_turn()
+            if _remaining_players(game) > 1:
+                _sleep_ms(settings.stage_delay_ms)
+                game.play_river()
+            _sleep_ms(settings.stage_delay_ms)
+            game.determine_winner()
+        except KeyboardInterrupt:
+            raise
+        except Exception as exc:
+            game.recover_from_error(exc)
+
+        if not settings.continuous_play:
+            return 0
+        _sleep_ms(settings.between_tournaments_delay_ms if game.tournament_complete else settings.between_hands_delay_ms)
+
+
+def main(argv=None):
     settings = build_settings(parse_args(argv))
     try:
         instance_lock = acquire_instance_lock(
@@ -228,10 +273,15 @@ def main(argv=None):
             allow_multiple=settings.allow_multiple_instances,
         )
     except RuntimeError as exc:
-        print(str(exc), file=sys.stderr)
+        safe_print(str(exc), file=sys.stderr)
         return 2
 
-    app = QApplication.instance() or QApplication(sys.argv)
+    app = None
+    if not settings.headless:
+        from gui import run_gui
+        from PyQt5.QtWidgets import QApplication
+
+        app = QApplication.instance() or QApplication(sys.argv)
     metrics = MetricsStore(settings.stats_path)
     game = PokerGame(
         num_players=settings.table_size,
@@ -322,9 +372,11 @@ def main(argv=None):
             sound_effects_dir=settings.sound_effects_path,
         ).start()
         game.service_health["overlay"] = "online"
-        print(f"Streaming overlay: {overlay.url}")
+        safe_print(f"Streaming overlay: {overlay.url}")
 
     try:
+        if settings.headless:
+            return run_headless(game, settings)
         return run_gui(game, settings, audio_service=audio, app=app)
     finally:
         audio.close()
@@ -337,4 +389,13 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except Exception:
+        try:
+            path = Path("data") / "startup-crash.log"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(traceback.format_exc(), encoding="utf-8")
+        except Exception:
+            pass
+        raise

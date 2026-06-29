@@ -57,6 +57,17 @@ def test_compatibility_parser_recognizes_complete_action_vocabulary():
     assert sanitize_decision("all-in") == "all_in"
 
 
+def test_auto_model_prefers_interactive_lfm_over_heavy_gpt_oss():
+    MODEL_REGISTRY._models = ["lfm2.5:latest", "gpt-oss:20b"]
+    MODEL_REGISTRY._updated = 10**9
+    try:
+        assert MODEL_REGISTRY.resolve("auto", 0) == "lfm2.5:latest"
+        assert MODEL_REGISTRY.resolve("auto", 1) == "lfm2.5:latest"
+    finally:
+        MODEL_REGISTRY._models = []
+        MODEL_REGISTRY._updated = 0.0
+
+
 def test_get_ai_decision_uses_ollama_chat_when_model_available(monkeypatch):
     _close_circuit()
     MODEL_REGISTRY._models = []

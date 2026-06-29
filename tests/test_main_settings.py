@@ -3,6 +3,16 @@ import pytest
 from main import acquire_instance_lock, build_settings, parse_args
 from scripts.preview_overlay import apply_health_fixture, parse_args as parse_preview_args
 from game import PokerGame
+from settings import default_profiles
+
+
+def test_default_profiles_include_broadcast_avatar_identity():
+    profiles = default_profiles()
+    assert profiles[0]["id"] == "atlas"
+    assert profiles[0]["avatar"] == "chrome_oracle"
+    assert profiles[0]["sigil"] == "AX"
+    assert profiles[0]["tagline"]
+    assert all({"avatar", "sigil", "tagline"} <= set(profile) for profile in profiles)
 
 
 def test_audio_cli_overrides_are_clamped(tmp_path):
@@ -22,6 +32,14 @@ def test_music_cli_can_disable_and_repoint_playlist(tmp_path):
     )
     assert not settings.music_enabled
     assert settings.music_path == str(music_dir)
+
+
+def test_headless_cli_enables_obs_only_runner(tmp_path):
+    settings = build_settings(
+        parse_args(["--config", str(tmp_path / "missing.json"), "--headless", "--single-hand"])
+    )
+    assert settings.headless
+    assert not settings.continuous_play
 
 
 def test_broadcast_pacing_cli_overrides_are_milliseconds(tmp_path):
