@@ -16,6 +16,9 @@ class PlayerProfile:
     color: str = "#e6b94a"
     voice: str = ""
     temperature: float = 0.25
+    avatar: str = "neon_mask"
+    sigil: str = ""
+    tagline: str = "AI competitor"
 
     @classmethod
     def from_value(cls, value, seat):
@@ -25,6 +28,10 @@ class PlayerProfile:
         color = str(value.get("color", "#e6b94a"))
         if not re.fullmatch(r"#[0-9a-fA-F]{3,8}", color):
             color = "#e6b94a"
+        avatar = re.sub(r"[^a-zA-Z0-9_-]", "", str(value.get("avatar", "neon_mask")))[:32] or "neon_mask"
+        sigil = str(value.get("sigil", "")).strip().upper()[:4]
+        if not sigil:
+            sigil = str(value.get("name", f"P{seat + 1}")).strip().upper()[:2] or f"P{seat + 1}"
         return cls(
             id=str(value.get("id", f"seat-{seat + 1}")),
             name=str(value.get("name", f"AI Player {seat + 1}")),
@@ -33,6 +40,9 @@ class PlayerProfile:
             color=color,
             voice=str(value.get("voice", "")),
             temperature=float(value.get("temperature", 0.25)),
+            avatar=avatar,
+            sigil=sigil,
+            tagline=str(value.get("tagline", value.get("persona", "AI competitor")))[:72],
         )
 
 

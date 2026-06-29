@@ -9,12 +9,78 @@ from program_rotation import default_variety_segments
 
 def default_profiles():
     return [
-        {"id": "atlas", "name": "Atlas", "persona": "disciplined tight-aggressive analyst", "model": "auto", "color": "#e7bd55", "voice": "", "temperature": 0.18},
-        {"id": "vega", "name": "Vega", "persona": "fearless loose-aggressive pressure player", "model": "auto", "color": "#ef6b67", "voice": "", "temperature": 0.38},
-        {"id": "nova", "name": "Nova", "persona": "balanced adaptive opponent reader", "model": "auto", "color": "#61b7ff", "voice": "", "temperature": 0.27},
-        {"id": "echo", "name": "Echo", "persona": "patient deceptive trap-oriented player", "model": "auto", "color": "#a98aff", "voice": "", "temperature": 0.3},
-        {"id": "river", "name": "River", "persona": "creative position-aware player", "model": "auto", "color": "#5ed39a", "voice": "", "temperature": 0.32},
-        {"id": "onyx", "name": "Onyx", "persona": "calm exploitative counter-puncher", "model": "auto", "color": "#d6d8dc", "voice": "", "temperature": 0.22},
+        {
+            "id": "atlas",
+            "name": "Atlas",
+            "persona": "disciplined tight-aggressive analyst",
+            "model": "auto",
+            "color": "#e7bd55",
+            "voice": "",
+            "temperature": 0.18,
+            "avatar": "chrome_oracle",
+            "sigil": "AX",
+            "tagline": "Cold solver in a gold visor",
+        },
+        {
+            "id": "vega",
+            "name": "Vega",
+            "persona": "fearless loose-aggressive pressure player",
+            "model": "auto",
+            "color": "#ef6b67",
+            "voice": "",
+            "temperature": 0.38,
+            "avatar": "redline_jackal",
+            "sigil": "VX",
+            "tagline": "Redline pressure dealer",
+        },
+        {
+            "id": "nova",
+            "name": "Nova",
+            "persona": "balanced adaptive opponent reader",
+            "model": "auto",
+            "color": "#61b7ff",
+            "voice": "",
+            "temperature": 0.27,
+            "avatar": "blue_nebula",
+            "sigil": "NX",
+            "tagline": "Balanced signal reader",
+        },
+        {
+            "id": "echo",
+            "name": "Echo",
+            "persona": "patient deceptive trap-oriented player",
+            "model": "auto",
+            "color": "#a98aff",
+            "voice": "",
+            "temperature": 0.3,
+            "avatar": "violet_phantom",
+            "sigil": "EX",
+            "tagline": "Trap-door mirror mask",
+        },
+        {
+            "id": "river",
+            "name": "River",
+            "persona": "creative position-aware player",
+            "model": "auto",
+            "color": "#5ed39a",
+            "voice": "",
+            "temperature": 0.32,
+            "avatar": "green_syndicate",
+            "sigil": "RV",
+            "tagline": "Late-street wire runner",
+        },
+        {
+            "id": "onyx",
+            "name": "Onyx",
+            "persona": "calm exploitative counter-puncher",
+            "model": "auto",
+            "color": "#d6d8dc",
+            "voice": "",
+            "temperature": 0.22,
+            "avatar": "silver_warden",
+            "sigil": "OX",
+            "tagline": "Quiet countermeasure unit",
+        },
     ]
 
 
@@ -42,6 +108,7 @@ class AppSettings:
     continuous_play: bool = True
     start_paused: bool = False
     allow_multiple_instances: bool = False
+    headless: bool = False
     single_instance_lock_path: str = "data/aipoker.pid"
     fullscreen: bool = True
     game_mode: str = "tournament"

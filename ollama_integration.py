@@ -42,7 +42,7 @@ class ModelRegistry:
         models = self.models()
         preferred = [
             model for model in models
-            if any(token in model.lower() for token in ("qwen", "llama", "gemma", "mistral", "command-r"))
+            if any(token in model.lower() for token in ("lfm", "qwen", "llama", "gemma", "mistral", "command-r"))
         ]
         candidates = preferred or models
         return candidates[seat % len(candidates)] if candidates else "llama3:latest"

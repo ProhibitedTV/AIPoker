@@ -59,10 +59,10 @@
     }
   ],
   "player_profiles": [
-    {"id": "atlas", "name": "Atlas", "persona": "disciplined tight-aggressive analyst", "model": "auto", "color": "#e7bd55", "voice": "", "temperature": 0.18},
-    {"id": "vega", "name": "Vega", "persona": "fearless loose-aggressive pressure player", "model": "auto", "color": "#ef6b67", "voice": "", "temperature": 0.38},
-    {"id": "nova", "name": "Nova", "persona": "balanced adaptive opponent reader", "model": "auto", "color": "#61b7ff", "voice": "", "temperature": 0.27},
-    {"id": "echo", "name": "Echo", "persona": "patient deceptive trap-oriented player", "model": "auto", "color": "#a98aff", "voice": "", "temperature": 0.3}
+    {"id": "atlas", "name": "Atlas", "persona": "disciplined tight-aggressive analyst", "model": "auto", "color": "#e7bd55", "voice": "", "temperature": 0.18, "avatar": "chrome_oracle", "sigil": "AX", "tagline": "Cold solver in a gold visor"},
+    {"id": "vega", "name": "Vega", "persona": "fearless loose-aggressive pressure player", "model": "auto", "color": "#ef6b67", "voice": "", "temperature": 0.38, "avatar": "redline_jackal", "sigil": "VX", "tagline": "Redline pressure dealer"},
+    {"id": "nova", "name": "Nova", "persona": "balanced adaptive opponent reader", "model": "auto", "color": "#61b7ff", "voice": "", "temperature": 0.27, "avatar": "blue_nebula", "sigil": "NX", "tagline": "Balanced signal reader"},
+    {"id": "echo", "name": "Echo", "persona": "patient deceptive trap-oriented player", "model": "auto", "color": "#a98aff", "voice": "", "temperature": 0.3, "avatar": "violet_phantom", "sigil": "EX", "tagline": "Trap-door mirror mask"}
   ],
   "rng_seed": null,
   "action_delay_ms": 1250,
@@ -74,6 +74,7 @@
   "continuous_play": true,
   "start_paused": false,
   "allow_multiple_instances": false,
+  "headless": false,
   "single_instance_lock_path": "data/aipoker.pid",
   "fullscreen": true,
   "reduced_motion": false,

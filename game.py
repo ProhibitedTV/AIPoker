@@ -1432,6 +1432,9 @@ class PokerGame:
                             "persona": player.profile.persona,
                             "model": player.profile.model,
                             "color": player.profile.color,
+                            "avatar": player.profile.avatar,
+                            "sigil": player.profile.sigil,
+                            "tagline": player.profile.tagline,
                         },
                         "model_health": {
                             "source": player.model_source,
