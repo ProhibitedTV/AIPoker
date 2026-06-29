@@ -207,7 +207,19 @@ def _parse_json_object(raw):
 def _validate_decision(decision, legal):
     if not isinstance(decision, dict):
         return None
-    action = str(decision.get("action", "")).lower().replace("-", "_").replace(" ", "_")
+    action_value = decision.get("action", "")
+    if not action_value:
+        for key, value in decision.items():
+            normalized_key = str(key).lower().replace("-", "_").replace(" ", "_")
+            if normalized_key.startswith("action_"):
+                candidate = normalized_key.removeprefix("action_")
+                if candidate in legal:
+                    action_value = candidate
+                    break
+            if normalized_key in legal and value not in (False, "false", "no"):
+                action_value = normalized_key
+                break
+    action = str(action_value).lower().replace("-", "_").replace(" ", "_")
     if action == "allin":
         action = "all_in"
     if action not in legal:
@@ -222,7 +234,12 @@ def _validate_decision(decision, legal):
             return None
     else:
         amount = contract.get("target")
-    talk = str(decision.get("table_talk", "")).replace("\n", " ").strip()[:100]
+    talk_value = decision.get("table_talk", "")
+    if isinstance(talk_value, list):
+        talk_value = " ".join(str(item) for item in talk_value)
+    elif isinstance(talk_value, dict):
+        talk_value = " ".join(str(item) for item in talk_value.values())
+    talk = str(talk_value).replace("\n", " ").strip()[:100]
     return {"action": action, "amount": amount, "table_talk": talk}
 
 
