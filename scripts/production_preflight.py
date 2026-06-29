@@ -24,6 +24,8 @@ REQUIRED_OVERLAY_MARKERS = (
     "FICTIONAL CHIPS",
     "NO REAL MONEY",
     'id="casinoBumper"',
+    'id="audienceRibbon"',
+    'id="winnerEngagement"',
     'id="broadcastRotator"',
     'id="healthPill"',
     "OLLAMA LIVE",

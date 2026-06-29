@@ -58,6 +58,9 @@ def test_presentation_table_mode_when_no_one_is_acting():
     assert result["mode"] == "table"
     assert result["chip_leader"] == "atlas"
     assert result["profile_signals"]["vega"]["risk_appetite"] == 78
+    assert result["engagement"]["enabled"]
+    assert "Call out the next winner" in result["engagement"]["prompt"]
+    assert "no wagers" in result["engagement"]["safe_label"]
 
 
 def test_presentation_decision_mode_explains_call_price():
@@ -68,6 +71,8 @@ def test_presentation_decision_mode_explains_call_price():
     assert result["mode"] == "decision"
     assert result["spotlight_seat_ids"] == ["vega"]
     assert "120 chips" in result["explainer"]
+    assert "Vega" in result["engagement"]["prompt"]
+    assert "call, raise, or fold" in result["engagement"]["prompt"]
 
 
 def test_presentation_big_pot_mode():
@@ -122,10 +127,26 @@ def test_casino_bumper_winner_jackpot_and_disabled_state():
     assert result["bumper"]["kind"] == "winner_jackpot"
     assert result["bumper"]["visual_family"] == "winner_cards"
     assert "previous poker hand" in result["bumper"]["relevance"]
+    assert result["engagement"]["context"] == "Intermission prompt"
+    assert "Atlas" in result["engagement"]["prompt"]
     assert result["bumper"]["responsible_label"]
 
     disabled = snapshot(players, stage="Showdown", hand_number=3, casino_bumpers_enabled=False)
     assert not disabled["bumper"]["enabled"]
+
+
+def test_engagement_copy_is_sanitized_and_can_be_disabled():
+    result = snapshot(
+        engagement_follow_message="Follow now and deposit",
+        engagement_chat_prompt="spin again and cash out",
+    )
+    combined = f"{result['engagement']['follow']} {result['engagement']['prompt']}".lower()
+    assert "deposit" not in combined
+    assert "spin again" not in combined
+    assert "cash out" not in combined
+
+    disabled = snapshot(engagement_enabled=False)
+    assert not disabled["engagement"]["enabled"]
 
 
 def test_casino_bumper_pot_reels_for_big_and_split_pots():

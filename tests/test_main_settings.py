@@ -64,6 +64,22 @@ def test_overlay_director_cli_overrides(tmp_path):
     assert settings.overlay_visual_debug
 
 
+def test_overlay_engagement_cli_overrides(tmp_path):
+    settings = build_settings(
+        parse_args(
+            [
+                "--config", str(tmp_path / "missing.json"),
+                "--no-overlay-engagement",
+                "--overlay-follow-message", "Follow the AI table",
+                "--overlay-chat-prompt", "Pick the next winner",
+            ]
+        )
+    )
+    assert not settings.overlay_engagement_enabled
+    assert settings.overlay_follow_message == "Follow the AI table"
+    assert settings.overlay_chat_prompt == "Pick the next winner"
+
+
 def test_variety_rotation_cli_overrides(tmp_path):
     settings = build_settings(
         parse_args(
