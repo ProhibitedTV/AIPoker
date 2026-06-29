@@ -34,6 +34,8 @@ Safe casino-style bumpers may appear between selected hands. They are decorative
 
 The bumper variety should always explain the poker on screen. Reel, wheel, card, standings, and marquee treatments are visual metaphors for the previous hand, all-in pressure, chip movement, leader board, hot streak, or next scheduled poker block. If a bumper feels disconnected from the hand, disable bumpers until the presentation data is fixed.
 
+Audience engagement prompts are safe to leave on for public streams when they stay tied to the table: follow the channel, call the next winner, discuss the current decision, or react to a winner banner. They must remain bragging-rights-only and should never ask viewers to wager, deposit, cash out, or chase a reward loop. Use `--no-overlay-engagement`, `overlay_engagement_enabled: false`, or `/overlay?engagement=0` if a scene needs a cleaner look.
+
 ## Production launch guardrails
 
 The app writes a local PID lock at `data/aipoker.pid` by default. This prevents accidental duplicate launches where one process owns the OBS port and another process owns audio. Use `--allow-multiple` only for deliberate preview/testing work.

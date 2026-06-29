@@ -25,6 +25,9 @@ def build_presentation_snapshot(
     casino_bumper_duration_ms=6500,
     casino_bumper_responsible_label=True,
     casino_bumper_frequency="selected_hands",
+    engagement_enabled=True,
+    engagement_follow_message="Follow for 24/7 autonomous AI poker.",
+    engagement_chat_prompt="Call out the next winner in chat.",
 ):
     """Return non-authoritative visual direction for the stream overlay.
 
@@ -117,6 +120,24 @@ def build_presentation_snapshot(
         responsible_label=casino_bumper_responsible_label,
         frequency=casino_bumper_frequency,
     )
+    engagement = _engagement_payload(
+        players=players,
+        actor=actor,
+        winners=winners,
+        all_ins=all_ins,
+        chip_leader=chip_leader,
+        stage=stage,
+        pot=pot,
+        big_blind=big_blind,
+        tournament=tournament,
+        recap=recap,
+        bumper=bumper,
+        program=program,
+        variety=variety,
+        enabled=engagement_enabled,
+        follow_message=engagement_follow_message,
+        chat_prompt=engagement_chat_prompt,
+    )
     return {
         "schema_version": PRESENTATION_SCHEMA_VERSION,
         "mode": mode,
@@ -125,6 +146,7 @@ def build_presentation_snapshot(
         "explainer": explainer,
         "recap": recap,
         "bumper": bumper,
+        "engagement": engagement,
         "visual_intensity": int(max(0, min(100, intensity))),
         "hand": int(hand_number or 0),
         "chip_leader": chip_leader.get("id") if chip_leader else None,
@@ -364,6 +386,91 @@ def _bumper_symbols(kind, winner, leader, recap, variety, visual_family=""):
         "next_format": ["▶", format_label, "NEXT"],
     }
     return by_kind.get(kind, ["AI", "POKER", "★"])
+
+
+def _engagement_payload(
+    *,
+    players,
+    actor,
+    winners,
+    all_ins,
+    chip_leader,
+    stage,
+    pot,
+    big_blind,
+    tournament,
+    recap,
+    bumper,
+    program,
+    variety,
+    enabled,
+    follow_message,
+    chat_prompt,
+):
+    follow = _safe_engagement_text(follow_message, "Follow for 24/7 autonomous AI poker.", 96)
+    base_prompt = _safe_engagement_text(chat_prompt, "Call out the next winner in chat.", 96)
+    safe = "Bragging rights only · fictional chips · no wagers."
+    stage_key = str(stage or "").lower()
+    leader_name = (chip_leader or {}).get("name", "the chip leader")
+    prompt = base_prompt
+    context = "Audience desk"
+    focus = leader_name
+
+    if winners:
+        winner_names = " + ".join(player.get("name", "Winner") for player in winners)
+        prompt = f"Chat: who wins the next hand after {winner_names}?"
+        context = "Winner follow-up"
+        focus = winner_names
+    elif all_ins:
+        names = " + ".join(player.get("name", "All-in") for player in all_ins)
+        prompt = f"Chat: does {names} survive this all-in?"
+        context = "All-in sweat"
+        focus = names
+    elif actor:
+        prompt = f"Chat: what should {actor.get('name', 'the actor')} do here — call, raise, or fold?"
+        context = "Decision prompt"
+        focus = actor.get("name", "acting player")
+    elif stage_key == "showdown":
+        prompt = "Chat: which revealed hand is best before the award?"
+        context = "Showdown prompt"
+        focus = "showdown"
+    elif int(pot or 0) >= max(1, int(big_blind or 1)) * 10:
+        prompt = f"Chat: who takes this {int(pot):,}-chip pot?"
+        context = "Pot prompt"
+    elif variety.get("title"):
+        prompt = f"Chat: pick the table captain for {variety.get('title')}."
+        context = "Format prompt"
+    elif tournament.get("complete"):
+        prompt = "Chat: who wins the next sit-and-go?"
+        context = "Trophy prompt"
+
+    if bumper.get("enabled"):
+        context = "Intermission prompt"
+    if recap.get("visible") and not winners:
+        context = "Recap prompt"
+
+    return {
+        "schema_version": 1,
+        "enabled": bool(enabled),
+        "context": context,
+        "prompt": _safe_engagement_text(prompt, base_prompt, 120),
+        "follow": follow,
+        "safe_label": safe,
+        "focus": focus,
+        "program": program.get("segment") or variety.get("title") or "AI Poker League",
+    }
+
+
+def _safe_engagement_text(value, fallback, limit):
+    text = re.sub(r"\s+", " ", str(value or "").strip())
+    if not text:
+        text = fallback
+    for forbidden in ("deposit", "cash out", "spin again"):
+        text = re.sub(forbidden, "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\s+", " ", text).strip(" -·")
+    if not text:
+        text = fallback
+    return text[: max(1, int(limit))]
 
 
 def _won_amount(action):

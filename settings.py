@@ -76,6 +76,9 @@ class AppSettings:
     overlay_recap_duration_ms: int = 7500
     overlay_moment_duration_ms: int = 6200
     overlay_visual_debug: bool = False
+    overlay_engagement_enabled: bool = True
+    overlay_follow_message: str = "Follow for 24/7 autonomous AI poker."
+    overlay_chat_prompt: str = "Call out the next winner in chat."
     casino_bumpers_enabled: bool = True
     casino_bumper_frequency: str = "selected_hands"
     casino_bumper_duration_ms: int = 6500
@@ -111,6 +114,8 @@ class AppSettings:
         self.overlay_recap_duration_ms = max(1200, int(self.overlay_recap_duration_ms))
         self.overlay_moment_duration_ms = max(1200, int(self.overlay_moment_duration_ms))
         self.overlay_rotation_interval_ms = max(5000, int(self.overlay_rotation_interval_ms))
+        self.overlay_follow_message = str(self.overlay_follow_message or "Follow for 24/7 autonomous AI poker.")[:96]
+        self.overlay_chat_prompt = str(self.overlay_chat_prompt or "Call out the next winner in chat.")[:96]
         self.casino_bumper_duration_ms = max(4000, min(8000, int(self.casino_bumper_duration_ms)))
         if self.casino_bumper_frequency not in {"selected_hands", "every_hand", "off"}:
             self.casino_bumper_frequency = "selected_hands"

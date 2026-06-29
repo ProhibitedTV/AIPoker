@@ -68,6 +68,7 @@ python scripts/preview_overlay.py --port 8775 --health-state audio-muted
 - Pin a message explaining that all chips, records, and standings are fictional.
 - Block or correct claims that the channel accepts bets, deposits, or prizes.
 - Do not solicit wagers, financial information, or off-platform transactions.
+- Keep engagement prompts such as “call the next winner” as bragging-rights-only chat participation. Do not add odds, stakes, rewards, credits, deposits, cash-outs, or betting-style loops.
 - Give moderators the copy-ready disclaimer above and a short escalation path.
 - Keep the simulation tag visible in clips; include “simulation” or “AI league” in clip titles when context could be lost.
 - Review VOD audio for copyrighted material; the built-in generated effects and ambience are the safest defaults, while `music/` contains operator-supplied tracks.

@@ -112,6 +112,9 @@ def parse_args(argv=None):
     parser.add_argument("--overlay-recap-duration", type=float, help="Seconds to hold between-hand recap visuals")
     parser.add_argument("--overlay-moment-duration", type=float, help="Seconds to hold major moment visuals")
     parser.add_argument("--overlay-visual-debug", action="store_true", help="Show OBS safe-area and director-mode labels")
+    parser.add_argument("--no-overlay-engagement", action="store_true", help="Disable OBS follow/chat engagement prompts")
+    parser.add_argument("--overlay-follow-message", help="Short follow-channel message for OBS engagement panels")
+    parser.add_argument("--overlay-chat-prompt", help="Short chat prompt for OBS engagement panels")
     parser.add_argument("--no-casino-bumpers", action="store_true", help="Disable non-wagering casino-style intermission bumpers")
     parser.add_argument("--mode", choices=("cash", "tournament"))
     parser.add_argument("--players", type=int, choices=range(2, 7), metavar="2-6")
@@ -167,6 +170,12 @@ def build_settings(args):
         settings.overlay_moment_duration_ms = max(1200, int(args.overlay_moment_duration * 1000))
     if args.overlay_visual_debug:
         settings.overlay_visual_debug = True
+    if args.no_overlay_engagement:
+        settings.overlay_engagement_enabled = False
+    if args.overlay_follow_message:
+        settings.overlay_follow_message = args.overlay_follow_message[:96]
+    if args.overlay_chat_prompt:
+        settings.overlay_chat_prompt = args.overlay_chat_prompt[:96]
     if args.no_casino_bumpers:
         settings.casino_bumpers_enabled = False
     if args.mode:
@@ -242,6 +251,9 @@ def main(argv=None):
         casino_bumper_duration_ms=settings.casino_bumper_duration_ms,
         casino_bumper_responsible_label=settings.casino_bumper_responsible_label,
         casino_bumper_frequency=settings.casino_bumper_frequency,
+        engagement_enabled=settings.overlay_engagement_enabled,
+        engagement_follow_message=settings.overlay_follow_message,
+        engagement_chat_prompt=settings.overlay_chat_prompt,
         history_path=settings.hand_history_path,
         checkpoint_path=settings.checkpoint_path,
         equity_samples=settings.equity_samples,
