@@ -44,6 +44,9 @@ def test_overlay_director_cli_overrides(tmp_path):
             [
                 "--config", str(tmp_path / "missing.json"),
                 "--no-director",
+                "--no-overlay-rotation",
+                "--overlay-rotation-interval", "12.5",
+                "--overlay-narration",
                 "--overlay-recap-duration", "8.25",
                 "--overlay-moment-duration", "5.5",
                 "--overlay-visual-debug",
@@ -51,6 +54,9 @@ def test_overlay_director_cli_overrides(tmp_path):
         )
     )
     assert not settings.overlay_director_enabled
+    assert not settings.overlay_rotation_enabled
+    assert settings.overlay_rotation_interval_ms == 12500
+    assert settings.overlay_narration_enabled
     assert settings.overlay_recap_duration_ms == 8250
     assert settings.overlay_moment_duration_ms == 5500
     assert settings.overlay_visual_debug

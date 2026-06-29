@@ -23,6 +23,9 @@ def parse_args(argv=None):
     parser.add_argument("--no-overlay", action="store_true")
     parser.add_argument("--no-simulation-disclaimer", action="store_true")
     parser.add_argument("--no-director", action="store_true", help="Disable directed OBS visual moments")
+    parser.add_argument("--no-overlay-rotation", action="store_true", help="Disable rotating OBS analysis desk panels")
+    parser.add_argument("--overlay-rotation-interval", type=float, help="Seconds between OBS analysis desk panels")
+    parser.add_argument("--overlay-narration", action="store_true", help="Enable browser speech narration for OBS analysis panels")
     parser.add_argument("--overlay-recap-duration", type=float, help="Seconds to hold between-hand recap visuals")
     parser.add_argument("--overlay-moment-duration", type=float, help="Seconds to hold major moment visuals")
     parser.add_argument("--overlay-visual-debug", action="store_true", help="Show OBS safe-area and director-mode labels")
@@ -67,6 +70,12 @@ def build_settings(args):
         settings.overlay_disclaimer_enabled = False
     if args.no_director:
         settings.overlay_director_enabled = False
+    if args.no_overlay_rotation:
+        settings.overlay_rotation_enabled = False
+    if args.overlay_rotation_interval is not None:
+        settings.overlay_rotation_interval_ms = max(5000, int(args.overlay_rotation_interval * 1000))
+    if args.overlay_narration:
+        settings.overlay_narration_enabled = True
     if args.overlay_recap_duration is not None:
         settings.overlay_recap_duration_ms = max(1200, int(args.overlay_recap_duration * 1000))
     if args.overlay_moment_duration is not None:
@@ -192,6 +201,9 @@ def main(argv=None):
             audio_enabled=settings.overlay_audio_enabled,
             disclaimer_enabled=settings.overlay_disclaimer_enabled,
             director_enabled=settings.overlay_director_enabled,
+            rotation_enabled=settings.overlay_rotation_enabled,
+            rotation_interval_ms=settings.overlay_rotation_interval_ms,
+            narration_enabled=settings.overlay_narration_enabled,
             recap_duration_ms=settings.overlay_recap_duration_ms,
             moment_duration_ms=settings.overlay_moment_duration_ms,
             visual_debug=settings.overlay_visual_debug,

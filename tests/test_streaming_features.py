@@ -135,6 +135,13 @@ class StreamingFeatureTests(unittest.TestCase):
             self.assertIn('id="equityRace"', html)
             self.assertIn('id="recapCard"', html)
             self.assertIn('id="casinoBumper"', html)
+            self.assertIn('id="broadcastRotator"', html)
+            self.assertIn("renderBroadcastRotator", html)
+            self.assertIn("Equity studio", html)
+            self.assertIn("AI model booth", html)
+            self.assertIn("Table talk monitor", html)
+            self.assertIn("NARRATION OFF", html)
+            self.assertIn("speechSynthesis", html)
             self.assertIn("presentationFor", html)
             self.assertIn("renderDirector", html)
             self.assertIn("renderCasinoBumper", html)
@@ -154,14 +161,28 @@ class StreamingFeatureTests(unittest.TestCase):
 
     def test_overlay_director_query_overrides_and_visual_debug(self):
         game = PokerGame(2, decision_provider=lambda *_: "check")
-        server = OverlayServer(game, port=0, director_enabled=True, visual_debug=False).start()
+        server = OverlayServer(
+            game,
+            port=0,
+            director_enabled=True,
+            visual_debug=False,
+            rotation_enabled=True,
+            rotation_interval_ms=11000,
+            narration_enabled=False,
+        ).start()
         try:
             with urlopen(f"{server.url}?director=0&visual_debug=1", timeout=2) as response:
                 html = response.read().decode("utf-8")
+            with urlopen(f"{server.url}?rotation=0&narration=1", timeout=2) as response:
+                narrated_html = response.read().decode("utf-8")
             self.assertIn('data-director="off"', html)
             self.assertIn("visual-debug", html)
             self.assertIn("director-off", html)
             self.assertIn('id="directorDebug"', html)
+            self.assertIn("rotationDefault='on'==='on'", narrated_html)
+            self.assertIn("rotationMs=Math.max(5000,Number(q.get('rotation_ms')||'11000')||9000)", narrated_html)
+            self.assertIn("narrationDefault='off'==='on'", narrated_html)
+            self.assertIn("q.get('narration')==='1'", narrated_html)
         finally:
             server.close()
 
