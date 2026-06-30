@@ -17,6 +17,9 @@
   ],
   "variety_rotation_enabled": true,
   "variety_rotation_interval_hands": 24,
+  "ai_lounge_enabled": true,
+  "ai_lounge_interval_hands": 4,
+  "ai_lounge_max_charge": 100,
   "variety_segments": [
     {
       "id": "championship_sng",

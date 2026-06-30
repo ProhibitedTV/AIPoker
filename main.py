@@ -132,6 +132,8 @@ def parse_args(argv=None):
     parser.add_argument("--single-instance-lock", help="PID lock path used to prevent duplicate OBS/audio owners")
     parser.add_argument("--no-variety-rotation", action="store_true", help="Keep the same table format/style indefinitely")
     parser.add_argument("--variety-interval-hands", type=int, help="Fallback hand count for custom variety segments")
+    parser.add_argument("--no-ai-lounge", action="store_true", help="Disable fictional AI lounge behavior modifiers")
+    parser.add_argument("--ai-lounge-interval-hands", type=int, help="Hands between AI lounge charge changes")
     parser.add_argument("--reduced-motion", action="store_true")
     parser.add_argument("--tts", action="store_true")
     parser.add_argument("--mute", action="store_true", help="Disable generated game sound cues")
@@ -202,6 +204,10 @@ def build_settings(args):
         settings.variety_rotation_enabled = False
     if args.variety_interval_hands is not None:
         settings.variety_rotation_interval_hands = max(1, int(args.variety_interval_hands))
+    if args.no_ai_lounge:
+        settings.ai_lounge_enabled = False
+    if args.ai_lounge_interval_hands is not None:
+        settings.ai_lounge_interval_hands = max(1, int(args.ai_lounge_interval_hands))
     if args.reduced_motion:
         settings.reduced_motion = True
     if args.tts:
@@ -297,6 +303,9 @@ def main(argv=None):
         variety_rotation_enabled=settings.variety_rotation_enabled,
         variety_rotation_interval_hands=settings.variety_rotation_interval_hands,
         variety_segments=settings.variety_segments,
+        ai_lounge_enabled=settings.ai_lounge_enabled,
+        ai_lounge_interval_hands=settings.ai_lounge_interval_hands,
+        ai_lounge_max_charge=settings.ai_lounge_max_charge,
         casino_bumpers_enabled=settings.casino_bumpers_enabled,
         casino_bumper_duration_ms=settings.casino_bumper_duration_ms,
         casino_bumper_responsible_label=settings.casino_bumper_responsible_label,

@@ -13,6 +13,7 @@ from analysis import EquityCalculator
 from broadcast_context import build_broadcast_context
 from deck import Deck
 from hand_evaluator import evaluate_hand
+from lounge import adjusted_temperature, build_lounge_snapshot, player_lounge_for
 from player import AIPlayer, PlayerProfile
 from presentation import build_presentation_snapshot
 from program_rotation import (
@@ -72,6 +73,9 @@ class PokerGame:
         variety_rotation_enabled=False,
         variety_rotation_interval_hands=24,
         variety_segments=None,
+        ai_lounge_enabled=True,
+        ai_lounge_interval_hands=4,
+        ai_lounge_max_charge=100,
         casino_bumpers_enabled=True,
         casino_bumper_duration_ms=6500,
         casino_bumper_responsible_label=True,
@@ -165,6 +169,16 @@ class PokerGame:
         self.current_variety_segment = self.variety_segments[start_index] if self.variety_segments else None
         self._variety_segment_started_hand = 0
         self._variety_rotation_delayed = False
+        self.ai_lounge_enabled = bool(ai_lounge_enabled)
+        self.ai_lounge_interval_hands = max(1, int(ai_lounge_interval_hands or 4))
+        self.ai_lounge_max_charge = max(0, min(100, int(ai_lounge_max_charge or 100)))
+        self.lounge_state = build_lounge_snapshot(
+            self.players,
+            self.hand_number,
+            enabled=self.ai_lounge_enabled,
+            interval_hands=self.ai_lounge_interval_hands,
+            max_charge=self.ai_lounge_max_charge,
+        )
         self.casino_bumpers_enabled = bool(casino_bumpers_enabled)
         self.casino_bumper_duration_ms = max(4000, min(8000, int(casino_bumper_duration_ms or 6500)))
         self.casino_bumper_responsible_label = bool(casino_bumper_responsible_label)
@@ -376,6 +390,22 @@ class PokerGame:
             delayed=self._variety_rotation_delayed,
         )
 
+    def _update_lounge_state(self):
+        previous_phase = (self.lounge_state or {}).get("phase")
+        self.lounge_state = build_lounge_snapshot(
+            self.players,
+            self.hand_number,
+            enabled=self.ai_lounge_enabled,
+            interval_hands=self.ai_lounge_interval_hands,
+            max_charge=self.ai_lounge_max_charge,
+        )
+        if self.lounge_state.get("enabled") and previous_phase and previous_phase != self.lounge_state.get("phase"):
+            self._emit(
+                "lounge_shift",
+                f"AI lounge shifts to {self.lounge_state['phase']}. {self.lounge_state['table_copy']}",
+                lounge=self.lounge_state,
+            )
+
     # ----- hand lifecycle -------------------------------------------------
 
     def play_pre_flop(self):
@@ -385,6 +415,7 @@ class PokerGame:
         if self.mode == "tournament":
             self.tournament_hand_number += 1
             self._apply_tournament_level()
+        self._update_lounge_state()
         self.stage = "Pre-Flop"
         self.deck.reset()
         self.community_cards = []
@@ -744,6 +775,7 @@ class PokerGame:
         call_amount = min(player.chips, to_call)
         pot_odds = 0.0 if call_amount <= 0 else round(100 * call_amount / (self.pot + call_amount), 1)
         category, ranks = evaluate_hand(player.hand, self.community_cards)
+        lounge_player = player_lounge_for(self.lounge_state, player.id)
         public_players = []
         for other in self.players:
             public_players.append(
@@ -770,7 +802,16 @@ class PokerGame:
             "profile": {
                 "persona": player.profile.persona,
                 "model": player.profile.model,
-                "temperature": player.profile.temperature,
+                "temperature": adjusted_temperature(player.profile.temperature, lounge_player),
+                "base_temperature": player.profile.temperature,
+            },
+            "lounge": {
+                "schema_version": 1,
+                "enabled": bool((self.lounge_state or {}).get("enabled")),
+                "phase": (self.lounge_state or {}).get("phase", ""),
+                "night_progress": (self.lounge_state or {}).get("night_progress", 0),
+                "responsible_label": (self.lounge_state or {}).get("responsible_label", ""),
+                "player": lounge_player,
             },
             "street": self.stage.lower(),
             "community_cards": [self.card_to_dict(card) for card in self.community_cards],
@@ -794,6 +835,7 @@ class PokerGame:
                     "strategy_hint",
                     "Play legal no-limit hold'em with the current public state.",
                 ),
+                "lounge_hint": lounge_player.get("decision_hint", ""),
             },
         }
 
@@ -1423,6 +1465,7 @@ class PokerGame:
                     value, ranks = evaluate_hand(player.hand, self.community_cards)
                     hand_name = self.describe_evaluation(value, ranks)
                 stats = stats_by_name.get(player.name, {})
+                lounge_player = player_lounge_for(self.lounge_state, player.id)
                 players.append(
                     {
                         "id": player.id,
@@ -1463,6 +1506,7 @@ class PokerGame:
                         "hand_label": hand_name,
                         "equity": equities.get(player.id),
                         "legal_actions": legal,
+                        "lounge": lounge_player,
                         "stats": {
                             "vpip": stats.get("vpip_rate", 0.0),
                             "pfr": stats.get("pfr_rate", 0.0),
@@ -1536,6 +1580,7 @@ class PokerGame:
                 "storylines": broadcast_context["storylines"],
                 "personality_arcs": broadcast_context["personality_arcs"],
                 "presentation": presentation,
+                "lounge": dict(self.lounge_state),
                 "analysis": {"pending": analysis_pending, "method": "exact-postflop/bounded-monte-carlo-preflop"},
                 "tournament": tournament_info,
                 "services": dict(self.service_health),

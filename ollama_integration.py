@@ -9,7 +9,9 @@ import time
 
 OLLAMA_API_URL = os.environ.get("OLLAMA_API_URL", "http://localhost:11434/api/chat")
 OLLAMA_LIST_URL = os.environ.get("OLLAMA_LIST_URL", "http://localhost:11434/api/tags")
+OLLAMA_GENERATE_URL = os.environ.get("OLLAMA_GENERATE_URL", "http://localhost:11434/api/generate")
 OLLAMA_TIMEOUT_SECONDS = float(os.environ.get("OLLAMA_TIMEOUT_SECONDS", "30"))
+OLLAMA_NUM_PREDICT = int(os.environ.get("OLLAMA_NUM_PREDICT", "96"))
 
 
 class ModelRegistry:
@@ -85,14 +87,14 @@ def get_ai_decision(context, community_cards=None, max_retries=2):
     seat = int(context.get("player", {}).get("seat", 0))
     requested_model = profile.get("model", "auto")
     if (not requested_model or requested_model == "auto") and not MODEL_REGISTRY.models():
-        fallback = _fallback_decision(legal, int(context.get("player", {}).get("stack", 0)))
+        fallback = _fallback_decision(legal, int(context.get("player", {}).get("stack", 0)), context.get("lounge"))
         fallback.update({"_model_status": "unavailable", "_model": None})
         return fallback
     model = MODEL_REGISTRY.resolve(requested_model, seat)
     with _CIRCUIT_LOCK:
         circuit_open = time.monotonic() < _CIRCUIT_OPEN_UNTIL
     if circuit_open:
-        fallback = _fallback_decision(legal, int(context.get("player", {}).get("stack", 0)))
+        fallback = _fallback_decision(legal, int(context.get("player", {}).get("stack", 0)), context.get("lounge"))
         fallback.update({"_model_status": "circuit-open", "_model": model})
         return fallback
     safe_context = _json_safe_context(context)
@@ -107,12 +109,17 @@ def get_ai_decision(context, community_cards=None, max_retries=2):
         {"role": "system", "content": system},
         {"role": "user", "content": json.dumps(safe_context, separators=(",", ":"))},
     ]
+    options = {
+        "temperature": max(0.0, min(1.5, float(profile.get("temperature", 0.25)))),
+        "num_predict": max(32, min(512, OLLAMA_NUM_PREDICT)),
+    }
     payload = {
         "model": model,
         "messages": messages,
         "stream": False,
         "format": "json",
-        "options": {"temperature": max(0.0, min(1.5, float(profile.get("temperature", 0.25))))},
+        "think": False,
+        "options": options,
     }
 
     import requests
@@ -121,8 +128,8 @@ def get_ai_decision(context, community_cards=None, max_retries=2):
         try:
             response = requests.post(OLLAMA_API_URL, json=payload, timeout=OLLAMA_TIMEOUT_SECONDS)
             response.raise_for_status()
-            raw = response.json().get("message", {}).get("content", "")
-            decision = _parse_json_object(raw)
+            raw = _response_text(response.json())
+            decision = _parse_json_object(_strip_thinking(raw))
             validated = _validate_decision(decision, legal)
             if validated:
                 _close_circuit()
@@ -140,8 +147,14 @@ def get_ai_decision(context, community_cards=None, max_retries=2):
             _open_circuit()
             break
         except (ValueError, TypeError, json.JSONDecodeError):
+            generated = _generate_decision(requests, system, safe_context, profile, model, legal, options)
+            if generated:
+                _close_circuit()
+                generated["_model_status"] = "online"
+                generated["_model"] = model
+                return generated
             break
-    fallback = _fallback_decision(legal, int(context.get("player", {}).get("stack", 0)))
+    fallback = _fallback_decision(legal, int(context.get("player", {}).get("stack", 0)), context.get("lounge"))
     fallback["_model_status"] = "fallback"
     fallback["_model"] = model
     return fallback
@@ -157,6 +170,57 @@ def _close_circuit():
     global _CIRCUIT_OPEN_UNTIL
     with _CIRCUIT_LOCK:
         _CIRCUIT_OPEN_UNTIL = 0.0
+
+
+def _response_text(payload):
+    if not isinstance(payload, dict):
+        return ""
+    if payload.get("response"):
+        return str(payload.get("response") or "")
+    message = payload.get("message") or {}
+    if isinstance(message, dict):
+        content = str(message.get("content") or "")
+        if content.strip():
+            return content
+        return str(message.get("thinking") or "")
+    return ""
+
+
+def _strip_thinking(raw):
+    text = str(raw or "").strip()
+    if not text:
+        return text
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.IGNORECASE | re.DOTALL).strip()
+    if "</think>" in text.lower():
+        text = re.split(r"</think>", text, flags=re.IGNORECASE)[-1].strip()
+    return text
+
+
+def _generate_decision(requests_module, system, safe_context, profile, model, legal, options):
+    prompt = (
+        f"{system}\n\n"
+        "Context JSON follows. Use only this context and choose one legal action from it.\n"
+        f"{json.dumps(safe_context, separators=(',', ':'))}\n\n"
+        "Return one compact JSON object only. No markdown. No explanation. No thinking tags."
+    )
+    payload = {
+        "model": model,
+        "prompt": prompt,
+        "stream": False,
+        "format": "json",
+        "think": False,
+        "options": dict(options or {}),
+    }
+    try:
+        response = requests_module.post(OLLAMA_GENERATE_URL, json=payload, timeout=OLLAMA_TIMEOUT_SECONDS)
+        response.raise_for_status()
+        decision = _parse_json_object(_strip_thinking(_response_text(response.json())))
+        return _validate_decision(decision, legal)
+    except requests_module.RequestException:
+        _open_circuit()
+    except (ValueError, TypeError, json.JSONDecodeError, KeyError):
+        return None
+    return None
 
 
 def _json_safe_context(context):
@@ -187,6 +251,7 @@ def _json_safe_context(context):
         "players": public_players,
         "action_history": context.get("action_history", []),
         "table_program": context.get("table_program", {}),
+        "lounge": context.get("lounge", {}),
         "strategy_hint": context.get("strategy_hint", {}),
     }
 
@@ -243,14 +308,25 @@ def _validate_decision(decision, legal):
     return {"action": action, "amount": amount, "table_talk": talk}
 
 
-def _fallback_decision(legal, stack):
-    if "check" in legal:
+def _fallback_decision(legal, stack, lounge=None):
+    lounge_player = (lounge or {}).get("player") if isinstance(lounge, dict) else {}
+    risk = int((lounge_player or {}).get("risk_delta", 0) or 0) + int((lounge_player or {}).get("charge", 0) or 0) // 5
+    focus = int((lounge_player or {}).get("focus_delta", 0) or 0)
+    bluff = int((lounge_player or {}).get("bluff_delta", 0) or 0)
+    if risk + bluff >= 24 and "raise" in legal:
+        action = "raise"
+    elif risk >= 18 and "bet" in legal:
+        action = "bet"
+    elif "check" in legal:
         action = "check"
-    elif "call" in legal and legal["call"].get("amount", stack) <= max(1, stack // 10):
+    elif "call" in legal and legal["call"].get("amount", stack) <= max(1, stack // (4 if risk >= 18 else 12 if focus >= 10 else 10)):
         action = "call"
     else:
         action = "fold"
-    return {"action": action, "amount": legal[action].get("target"), "table_talk": ""}
+    amount = legal[action].get("target")
+    if action in {"bet", "raise"}:
+        amount = legal[action].get("min_target")
+    return {"action": action, "amount": amount, "table_talk": ""}
 
 
 def _legacy_context(hand, community_cards):
