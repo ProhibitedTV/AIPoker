@@ -14,6 +14,12 @@ def test_lounge_snapshot_is_public_deterministic_and_safe():
     assert first["responsible_label"] == RESPONSIBLE_LABEL
     assert "NO REAL ALCOHOL" in first["responsible_label"]
     assert first["venue"]["district"]
+    assert first["scene_name"]
+    assert first["venue_zone"]
+    assert first["service_bot"]
+    assert first["table_mood"]
+    assert first["atmosphere_line"]
+    assert first["rivalry"]["headline"]
     assert first["service_round"] >= 1
     assert 0 <= first["pressure_index"] <= 100
     assert set(first["table_effects"]) == {"risk", "bluff", "focus"}
@@ -37,6 +43,9 @@ def test_lounge_can_be_disabled_without_removing_schema():
     assert not snapshot["enabled"]
     assert snapshot["players"] == {}
     assert snapshot["venue"] == {}
+    assert snapshot["scene_name"] == ""
+    assert snapshot["service_bot"] == ""
+    assert not snapshot["rivalry"]["active"]
     assert snapshot["pressure_index"] == 0
     assert not player["enabled"]
     assert player["risk_delta"] == 0
@@ -75,6 +84,9 @@ def test_game_state_and_decision_context_publish_lounge_modifiers():
 
     assert state["lounge"]["enabled"]
     assert "venue" in state["lounge"]
+    assert "service_bot" in state["lounge"]
+    assert "rivalry" in state["lounge"]
+    assert "atmosphere_line" in state["lounge"]
     assert "pressure_index" in state["lounge"]
     assert state["players"][0]["lounge"]["enabled"]
     assert "drink" in state["players"][0]["lounge"]

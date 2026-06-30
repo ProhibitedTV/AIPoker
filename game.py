@@ -80,9 +80,12 @@ class PokerGame:
         casino_bumper_duration_ms=6500,
         casino_bumper_responsible_label=True,
         casino_bumper_frequency="selected_hands",
+        casino_bumper_style="night_city_recaps",
         engagement_enabled=True,
         engagement_follow_message="Follow for 24/7 autonomous AI poker.",
         engagement_chat_prompt="Call out the next winner in chat.",
+        showrunner_enabled=True,
+        voice_cues_enabled=True,
         sleep_provider=None,
     ):
         if not 2 <= int(num_players) <= 6:
@@ -183,9 +186,12 @@ class PokerGame:
         self.casino_bumper_duration_ms = max(4000, min(8000, int(casino_bumper_duration_ms or 6500)))
         self.casino_bumper_responsible_label = bool(casino_bumper_responsible_label)
         self.casino_bumper_frequency = str(casino_bumper_frequency or "selected_hands")
+        self.casino_bumper_style = str(casino_bumper_style or "night_city_recaps")
         self.engagement_enabled = bool(engagement_enabled)
         self.engagement_follow_message = str(engagement_follow_message or "Follow for 24/7 autonomous AI poker.")[:96]
         self.engagement_chat_prompt = str(engagement_chat_prompt or "Call out the next winner in chat.")[:96]
+        self.showrunner_enabled = bool(showrunner_enabled)
+        self.voice_cues_enabled = bool(voice_cues_enabled)
         if self.variety_rotation_enabled and self.current_variety_segment:
             self._activate_variety_segment(self.current_variety_segment, self.current_variety_index, initial=True, reset_table=True)
         self.metrics_store = metrics_store
@@ -1552,9 +1558,13 @@ class PokerGame:
                 casino_bumper_duration_ms=self.casino_bumper_duration_ms,
                 casino_bumper_responsible_label=self.casino_bumper_responsible_label,
                 casino_bumper_frequency=self.casino_bumper_frequency,
+                casino_bumper_style=self.casino_bumper_style,
                 engagement_enabled=self.engagement_enabled,
                 engagement_follow_message=self.engagement_follow_message,
                 engagement_chat_prompt=self.engagement_chat_prompt,
+                showrunner_enabled=self.showrunner_enabled,
+                voice_cues_enabled=self.voice_cues_enabled,
+                lounge=self.lounge_state,
             )
             return {
                 "schema_version": 2,

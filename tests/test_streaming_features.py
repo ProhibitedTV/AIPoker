@@ -97,10 +97,20 @@ class StreamingFeatureTests(unittest.TestCase):
             self.assertIn("venue", state["lounge"])
             self.assertIn("pressure_index", state["lounge"])
             self.assertIn("table_effects", state["lounge"])
+            self.assertIn("scene_name", state["lounge"])
+            self.assertIn("service_bot", state["lounge"])
+            self.assertIn("table_mood", state["lounge"])
+            self.assertIn("rivalry", state["lounge"])
+            self.assertIn("atmosphere_line", state["lounge"])
             self.assertIn("presentation", state)
             self.assertEqual(state["presentation"]["schema_version"], 1)
             self.assertIn(state["presentation"]["mode"], {"table", "decision", "big_pot", "all_in", "showdown", "recap"})
             self.assertIn("spotlight_seat_ids", state["presentation"])
+            self.assertEqual(state["presentation"]["showrunner_schema_version"], 1)
+            self.assertIn("viewer_focus", state["presentation"])
+            self.assertIn("voice_cue", state["presentation"])
+            self.assertIn("non_reader_labels", state["presentation"])
+            self.assertIn("audience_hook", state["presentation"])
             self.assertIn("bumper", state["presentation"])
             self.assertIn("enabled", state["presentation"]["bumper"])
             self.assertIn("responsible_label", state["presentation"]["bumper"])
@@ -131,6 +141,13 @@ class StreamingFeatureTests(unittest.TestCase):
             self.assertIn("Night City pass", html)
             self.assertIn("Neon megacity layer", html)
             self.assertIn("Cyberpunk director mode unification", html)
+            self.assertIn("Showrunner non-reader layer", html)
+            self.assertIn('id="showrunnerFocus"', html)
+            self.assertIn('id="nonReaderStrip"', html)
+            self.assertIn('id="voiceFlash"', html)
+            self.assertIn("speakVoiceCue", html)
+            self.assertIn("showrunnerDefault", html)
+            self.assertIn("voiceCooldownMs", html)
             self.assertIn("city-backdrop", html)
             self.assertIn("city-skyline", html)
             self.assertIn("city-rain", html)
@@ -142,6 +159,8 @@ class StreamingFeatureTests(unittest.TestCase):
             self.assertIn("AI lounge service", html)
             self.assertIn("pressure_index", html)
             self.assertIn("service_level", html)
+            self.assertIn("service_bot", html)
+            self.assertIn("table_mood", html)
             self.assertIn("Real alcohol", html)
             self.assertIn("DEALER STATION", html)
             self.assertIn("deck-stack", html)
@@ -213,13 +232,22 @@ class StreamingFeatureTests(unittest.TestCase):
             rotation_enabled=True,
             rotation_interval_ms=11000,
             narration_enabled=False,
+            showrunner_enabled=True,
+            voice_cues_enabled=True,
+            voice_cooldown_ms=13000,
+            non_reader_mode=True,
+            night_city_intensity="high",
         ).start()
         try:
-            with urlopen(f"{server.url}?director=0&visual_debug=1", timeout=2) as response:
+            with urlopen(f"{server.url}?director=0&showrunner=0&nonreader=0&voice=0&night_city=low&visual_debug=1", timeout=2) as response:
                 html = response.read().decode("utf-8")
             with urlopen(f"{server.url}?rotation=0&narration=1", timeout=2) as response:
                 narrated_html = response.read().decode("utf-8")
             self.assertIn('data-director="off"', html)
+            self.assertIn("q.get('showrunner')==='0'", html)
+            self.assertIn("q.get('nonreader')==='0'", html)
+            self.assertIn("q.get('voice')==='0'", html)
+            self.assertIn("nightCityIntensity=q.get('night_city')||'high'", html)
             self.assertIn("visual-debug", html)
             self.assertIn("director-off", html)
             self.assertIn('id="directorDebug"', html)
@@ -227,6 +255,7 @@ class StreamingFeatureTests(unittest.TestCase):
             self.assertIn("rotationMs=Math.max(5000,Number(q.get('rotation_ms')||'11000')||9000)", narrated_html)
             self.assertIn("narrationDefault='off'==='on'", narrated_html)
             self.assertIn("q.get('narration')==='1'", narrated_html)
+            self.assertIn("voiceCooldownMs=Math.max(3000,Number(q.get('voice_ms')||'13000')||9000)", narrated_html)
         finally:
             server.close()
 
