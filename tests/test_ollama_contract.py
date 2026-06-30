@@ -24,6 +24,11 @@ def test_prompt_whitelist_strips_opponent_cards_and_viewer_analysis():
         ],
         "viewer_equity": {"vega": 91.2},
         "table_program": {"segment_id": "ante_splash_cash", "strategy_hint": "Antes are public."},
+        "lounge": {
+            "enabled": True,
+            "phase": "Neon hour",
+            "player": {"drink": "Chrome Old Fashioned", "decision_hint": "Public fictional modifier."},
+        },
         "presentation": {"bumper": {"enabled": True, "kind": "winner_jackpot"}},
         "community_cards_raw": [(2, "clubs")],
         "legal_actions": [{"action": "check"}],
@@ -35,6 +40,7 @@ def test_prompt_whitelist_strips_opponent_cards_and_viewer_analysis():
     assert "viewer_equity" not in safe
     assert "presentation" not in safe
     assert safe["table_program"]["segment_id"] == "ante_splash_cash"
+    assert safe["lounge"]["player"]["drink"] == "Chrome Old Fashioned"
     assert "community_cards_raw" not in safe
 
 
@@ -127,6 +133,51 @@ def test_get_ai_decision_uses_ollama_chat_when_model_available(monkeypatch):
     assert decision["amount"] == 80
     assert decision["_model_status"] == "online"
     assert decision["_model"] == "qwen2.5:7b"
+
+
+def test_get_ai_decision_falls_back_to_generate_when_chat_thinks_instead_of_json(monkeypatch):
+    _close_circuit()
+    MODEL_REGISTRY._models = []
+    MODEL_REGISTRY._updated = 0.0
+    calls = []
+
+    class Response:
+        def __init__(self, payload):
+            self.payload = payload
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return self.payload
+
+    def fake_get(*_args, **_kwargs):
+        return Response({"models": [{"name": "lfm2.5:latest"}]})
+
+    def fake_post(url, json, timeout):
+        calls.append(url)
+        assert json["model"] == "lfm2.5:latest"
+        assert json["options"]["num_predict"] >= 32
+        if url.endswith("/api/chat"):
+            return Response({"message": {"content": "<think>I should check here."}})
+        return Response({"response": '{"action":"check","amount":null,"table_talk":"Neon calm."}'})
+
+    monkeypatch.setattr(requests, "get", fake_get)
+    monkeypatch.setattr(requests, "post", fake_post)
+
+    decision = get_ai_decision(
+        {
+            "player": {"id": "atlas", "seat": 0, "stack": 2000, "hole_cards": []},
+            "profile": {"model": "auto", "persona": "disciplined", "temperature": 0.2},
+            "legal_actions": [{"action": "check"}],
+        }
+    )
+
+    assert calls == ["http://localhost:11434/api/chat", "http://localhost:11434/api/generate"]
+    assert decision["action"] == "check"
+    assert decision["table_talk"] == "Neon calm."
+    assert decision["_model_status"] == "online"
+    assert decision["_model"] == "lfm2.5:latest"
 
 
 def test_auto_model_falls_back_without_claiming_ollama_when_list_unavailable(monkeypatch):

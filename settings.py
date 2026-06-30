@@ -121,6 +121,9 @@ class AppSettings:
     variety_rotation_enabled: bool = True
     variety_rotation_interval_hands: int = 24
     variety_segments: list = field(default_factory=default_variety_segments)
+    ai_lounge_enabled: bool = True
+    ai_lounge_interval_hands: int = 4
+    ai_lounge_max_charge: int = 100
     checkpoint_path: str = "data/checkpoint.json"
     hand_history_path: str = "data/hand_history.jsonl"
     equity_samples: int = 1600
@@ -178,6 +181,8 @@ class AppSettings:
         self.variety_rotation_interval_hands = max(1, int(self.variety_rotation_interval_hands))
         if not isinstance(self.variety_segments, list) or not self.variety_segments:
             self.variety_segments = default_variety_segments()
+        self.ai_lounge_interval_hands = max(1, int(self.ai_lounge_interval_hands))
+        self.ai_lounge_max_charge = max(0, min(100, int(self.ai_lounge_max_charge)))
         self.overlay_recap_duration_ms = max(1200, int(self.overlay_recap_duration_ms))
         self.overlay_moment_duration_ms = max(1200, int(self.overlay_moment_duration_ms))
         self.overlay_rotation_interval_ms = max(5000, int(self.overlay_rotation_interval_ms))

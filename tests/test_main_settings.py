@@ -112,6 +112,21 @@ def test_variety_rotation_cli_overrides(tmp_path):
     assert settings.variety_rotation_interval_hands == 9
 
 
+def test_ai_lounge_cli_overrides(tmp_path):
+    settings = build_settings(
+        parse_args(
+            [
+                "--config", str(tmp_path / "missing.json"),
+                "--no-ai-lounge",
+                "--ai-lounge-interval-hands", "7",
+            ]
+        )
+    )
+    assert not settings.ai_lounge_enabled
+    assert settings.ai_lounge_interval_hands == 7
+    assert settings.ai_lounge_max_charge == 100
+
+
 def test_single_instance_cli_overrides(tmp_path):
     lock_path = tmp_path / "show.pid"
     settings = build_settings(

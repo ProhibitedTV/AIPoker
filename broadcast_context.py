@@ -216,6 +216,11 @@ def build_personality_arcs(metrics, players):
         risk = _clamp(round(pfr * 0.7 + aggression * 10 + int(stats.get("all_ins", 0)) * 1.5), 0, 100)
         confidence = _clamp(round(45 + streak * 8 + (showdown - 50) * 0.35), 0, 100)
         tilt = _clamp(round(abs(min(0, streak)) * 9 + max(0, 35 - showdown) * 0.45), 0, 100)
+        lounge = player.get("lounge") or {}
+        if lounge.get("enabled"):
+            risk = _clamp(risk + int(lounge.get("risk_delta", 0) or 0), 0, 100)
+            confidence = _clamp(confidence + max(0, int(lounge.get("focus_delta", 0) or 0)) // 2, 0, 100)
+            tilt = _clamp(tilt + max(0, -int(lounge.get("focus_delta", 0) or 0)) + max(0, int(lounge.get("bluff_delta", 0) or 0)) // 4, 0, 100)
         style = _style_label(vpip, pfr, aggression)
         arc_events = []
         if stats.get("biggest_pot_won"):
@@ -224,6 +229,8 @@ def build_personality_arcs(metrics, players):
             arc_events.append(f"{int(stats.get('tournament_wins', 0))} tournament banner(s)")
         if stats.get("longest_winning_streak"):
             arc_events.append(f"Longest heater: {int(stats.get('longest_winning_streak', 0))}")
+        if lounge.get("enabled"):
+            arc_events.append(f"Lounge: {lounge.get('drink')} · {lounge.get('mood')}")
         arcs[player.get("id") or name] = {
             "name": name,
             "style": style,
