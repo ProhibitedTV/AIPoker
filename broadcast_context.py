@@ -230,7 +230,9 @@ def build_personality_arcs(metrics, players):
         if stats.get("longest_winning_streak"):
             arc_events.append(f"Longest heater: {int(stats.get('longest_winning_streak', 0))}")
         if lounge.get("enabled"):
-            arc_events.append(f"Lounge: {lounge.get('drink')} · {lounge.get('mood')}")
+            arc_events.append(
+                f"Lounge: {lounge.get('drink')} · {lounge.get('service_level') or lounge.get('mood')} · {lounge.get('visual_tell')}"
+            )
         arcs[player.get("id") or name] = {
             "name": name,
             "style": style,

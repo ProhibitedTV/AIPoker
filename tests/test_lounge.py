@@ -13,8 +13,19 @@ def test_lounge_snapshot_is_public_deterministic_and_safe():
     assert first["enabled"]
     assert first["responsible_label"] == RESPONSIBLE_LABEL
     assert "NO REAL ALCOHOL" in first["responsible_label"]
+    assert first["venue"]["district"]
+    assert first["service_round"] >= 1
+    assert 0 <= first["pressure_index"] <= 100
+    assert set(first["table_effects"]) == {"risk", "bluff", "focus"}
+    assert first["broadcast_cue"]
+    assert "no real alcohol" in first["safety_copy"].lower()
     assert set(first["players"]) == {"atlas", "vega"}
     assert first["players"]["atlas"]["drink"] == "Chrome Old Fashioned"
+    assert first["players"]["atlas"]["neon_color"].startswith("#")
+    assert first["players"]["atlas"]["glassware"]
+    assert first["players"]["atlas"]["visual_tell"]
+    assert first["players"]["atlas"]["service_level"]
+    assert set(first["players"]["atlas"]["current_effects"]) == {"risk", "bluff", "focus"}
     assert 0 <= first["players"]["vega"]["charge"] <= 100
 
 
@@ -25,8 +36,11 @@ def test_lounge_can_be_disabled_without_removing_schema():
     assert snapshot["schema_version"] == 1
     assert not snapshot["enabled"]
     assert snapshot["players"] == {}
+    assert snapshot["venue"] == {}
+    assert snapshot["pressure_index"] == 0
     assert not player["enabled"]
     assert player["risk_delta"] == 0
+    assert player["current_effects"] == {"risk": 0, "bluff": 0, "focus": 0}
 
 
 def test_lounge_adjusts_model_temperature_without_unbounded_values():
@@ -60,9 +74,14 @@ def test_game_state_and_decision_context_publish_lounge_modifiers():
     context = game._decision_context(game.players[0], [{"action": "check"}], 0, game.big_blind)
 
     assert state["lounge"]["enabled"]
+    assert "venue" in state["lounge"]
+    assert "pressure_index" in state["lounge"]
     assert state["players"][0]["lounge"]["enabled"]
     assert "drink" in state["players"][0]["lounge"]
+    assert "visual_tell" in state["players"][0]["lounge"]
+    assert "service_level" in state["players"][0]["lounge"]
     assert context["lounge"]["player"]["id"] == game.players[0].id
+    assert context["lounge"]["player"]["current_effects"]["risk"] == context["lounge"]["player"]["risk_delta"]
     assert context["profile"]["temperature"] != context["profile"]["base_temperature"]
     assert "fictional AI lounge modifier" in context["strategy_hint"]["lounge_hint"]
 
