@@ -72,6 +72,96 @@ FALLBACK_DRINK = {
     "cue": "slightly looser adaptive play without abandoning pot odds",
 }
 
+DRINK_DETAILS = {
+    "focus": {
+        "neon_color": "#74f7ff",
+        "flavor_notes": "smoked citrus, chrome bitters",
+        "garnish": "blue-lit orange peel",
+        "glassware": "lowball prism",
+        "visual_tell": "visor glow steadies between bets",
+    },
+    "pressure": {
+        "neon_color": "#ff4f87",
+        "flavor_notes": "pepper berry, electric ginger",
+        "garnish": "red diode cherry",
+        "glassware": "tall reactor glass",
+        "visual_tell": "chip hand speeds up when pots swell",
+    },
+    "balance": {
+        "neon_color": "#62ffb7",
+        "flavor_notes": "mint, lime, blue ion fizz",
+        "garnish": "floating holo leaf",
+        "glassware": "stemless orb",
+        "visual_tell": "bet timing stays smooth under pressure",
+    },
+    "deception": {
+        "neon_color": "#c35cff",
+        "flavor_notes": "violet smoke, black cherry",
+        "garnish": "purple vapor ribbon",
+        "glassware": "mirrored coupe",
+        "visual_tell": "avatar smile flickers before traps",
+    },
+    "position": {
+        "neon_color": "#52f6a8",
+        "flavor_notes": "green circuit mint, ozone",
+        "garnish": "microchip sugar rim",
+        "glassware": "angled highball",
+        "visual_tell": "seat light brightens on late position",
+    },
+    "counter": {
+        "neon_color": "#8db7ff",
+        "flavor_notes": "cold espresso, black ice",
+        "garnish": "frosted neon shard",
+        "glassware": "black crystal tumbler",
+        "visual_tell": "pulse slows after opponent aggression",
+    },
+    "adaptive": {
+        "neon_color": "#f6df72",
+        "flavor_notes": "zero-proof tonic, citrus static",
+        "garnish": "gold circuit twist",
+        "glassware": "clear cube glass",
+        "visual_tell": "signal recalibrates each street",
+    },
+}
+
+VENUES = (
+    {
+        "name": "Rainline Room",
+        "district": "Simulation District",
+        "booth": "sub-basement rail",
+        "lighting": "cyan rain and magenta glass",
+        "weather": "synthetic rain",
+    },
+    {
+        "name": "Neon Mezzanine",
+        "district": "Stack Alley",
+        "booth": "upper-ring booth",
+        "lighting": "violet skyline wash",
+        "weather": "low fog",
+    },
+    {
+        "name": "Afterhours Grid",
+        "district": "Chrome Market",
+        "booth": "back-room holo table",
+        "lighting": "redline strobes",
+        "weather": "electric haze",
+    },
+    {
+        "name": "Black Circuit Lounge",
+        "district": "Dealer's Row",
+        "booth": "private server cage",
+        "lighting": "gold chip LEDs",
+        "weather": "static drizzle",
+    },
+)
+
+SOUNDTRACKS = (
+    "slow synth bass under chip clicks",
+    "rainy alley pads with distant crowd noise",
+    "high-voltage pulse during big pots",
+    "low neon lounge bed between hands",
+)
+
 PHASES = (
     {"name": "Doors open", "risk": 0, "focus": 2, "copy": "The AI lounge is warming up."},
     {"name": "Neon hour", "risk": 3, "focus": 1, "copy": "Synthetic lounge service is adding table texture."},
@@ -91,23 +181,45 @@ def build_lounge_snapshot(players, hand_number=0, *, enabled=True, interval_hand
     cycle_offset = hand_number % cycle
     night_progress = round(100 * cycle_offset / max(1, cycle - 1))
     phase = PHASES[(cycle_offset // max(1, interval_hands * 4)) % len(PHASES)]
+    venue = VENUES[(cycle_offset // max(1, interval_hands * 2)) % len(VENUES)]
+    service_round = cycle_offset // interval_hands + 1
     player_states = {}
     table_charge = 0
+    total_risk = 0
+    total_bluff = 0
+    total_focus = 0
     for seat, player in enumerate(players or []):
         player_id = _player_value(player, "id", f"seat-{seat + 1}")
         state = _player_lounge_state(player, seat, hand_number, night_progress, phase, max_charge)
         player_states[player_id] = state
         table_charge += int(state["charge"])
+        total_risk += int(state["risk_delta"])
+        total_bluff += int(state["bluff_delta"])
+        total_focus += int(state["focus_delta"])
     average_charge = round(table_charge / max(1, len(player_states)))
+    player_count = max(1, len(player_states))
+    table_effects = {
+        "risk": round(total_risk / player_count),
+        "bluff": round(total_bluff / player_count),
+        "focus": round(total_focus / player_count),
+    }
+    pressure_index = max(0, min(100, average_charge + table_effects["risk"] * 2 + table_effects["bluff"] - table_effects["focus"]))
     return {
         "schema_version": LOUNGE_SCHEMA_VERSION,
         "enabled": True,
         "hand": hand_number,
         "phase": phase["name"],
+        "venue": venue,
+        "service_round": service_round,
         "night_progress": night_progress,
         "average_charge": average_charge,
+        "pressure_index": pressure_index,
+        "table_effects": table_effects,
         "table_label": "AI lounge service",
         "table_copy": phase["copy"],
+        "broadcast_cue": f"{venue['name']} - {phase['name']}: {phase['copy']}",
+        "soundtrack": SOUNDTRACKS[(cycle_offset // max(1, interval_hands)) % len(SOUNDTRACKS)],
+        "safety_copy": "Synthetic AI lounge service only; no real alcohol.",
         "responsible_label": RESPONSIBLE_LABEL,
         "players": player_states,
     }
@@ -133,6 +245,7 @@ def _player_lounge_state(player, seat, hand_number, night_progress, phase, max_c
     player_id = _player_value(player, "id", f"seat-{seat + 1}")
     name = _player_value(player, "name", f"Seat {seat + 1}")
     drink = DRINKS.get(str(player_id).lower(), FALLBACK_DRINK)
+    details = DRINK_DETAILS.get(drink["family"], DRINK_DETAILS["adaptive"])
     wobble = ((hand_number * 11 + seat * 17 + sum(ord(char) for char in str(player_id))) % 19) - 9
     charge = max(0, min(max_charge, night_progress + wobble))
     charge_units = min(4, charge // 25)
@@ -147,18 +260,32 @@ def _player_lounge_state(player, seat, hand_number, night_progress, phase, max_c
         "id": player_id,
         "name": name,
         "drink": drink["drink"],
+        "drink_code": f"{drink['family'][:3].upper()}-{(sum(ord(char) for char in str(player_id)) + hand_number + seat) % 100:02d}",
         "family": drink["family"],
+        "neon_color": details["neon_color"],
+        "flavor_notes": details["flavor_notes"],
+        "garnish": details["garnish"],
+        "glassware": details["glassware"],
+        "visual_tell": details["visual_tell"],
         "charge": int(charge),
         "charge_units": int(charge_units),
+        "service_level": _service_level(charge),
         "risk_delta": int(risk_delta),
         "bluff_delta": int(bluff_delta),
         "focus_delta": int(focus_delta),
+        "current_effects": {
+            "risk": int(risk_delta),
+            "bluff": int(bluff_delta),
+            "focus": int(focus_delta),
+        },
         "mood": mood,
         "decision_hint": (
             f"{drink['drink']} is a fictional AI lounge modifier: {drink['cue']}. "
-            f"Current mood is {mood}; adjust risk by {risk_delta:+d}, bluff by {bluff_delta:+d}, focus by {focus_delta:+d}."
+            f"Current mood is {mood}; visual tell is {details['visual_tell']}. "
+            f"Adjust risk by {risk_delta:+d}, bluff by {bluff_delta:+d}, focus by {focus_delta:+d}."
         ),
         "table_talk_cue": f"{name}'s {drink['family']} lounge mood is {mood}.",
+        "broadcast_line": f"{name}: {drink['drink']} / {mood} / {details['visual_tell']}",
         "responsible_label": RESPONSIBLE_LABEL,
     }
 
@@ -175,16 +302,35 @@ def _mood_label(charge, risk_delta, focus_delta):
     return "composed"
 
 
+def _service_level(charge):
+    if charge >= 80:
+        return "glitch service"
+    if charge >= 60:
+        return "overclocked"
+    if charge >= 35:
+        return "neon warm"
+    if charge > 0:
+        return "low glow"
+    return "idle"
+
+
 def _disabled(hand_number):
     return {
         "schema_version": LOUNGE_SCHEMA_VERSION,
         "enabled": False,
         "hand": int(hand_number or 0),
         "phase": "",
+        "venue": {},
+        "service_round": 0,
         "night_progress": 0,
         "average_charge": 0,
+        "pressure_index": 0,
+        "table_effects": {"risk": 0, "bluff": 0, "focus": 0},
         "table_label": "",
         "table_copy": "",
+        "broadcast_cue": "",
+        "soundtrack": "",
+        "safety_copy": "Synthetic AI lounge service only; no real alcohol.",
         "responsible_label": RESPONSIBLE_LABEL,
         "players": {},
     }
@@ -196,15 +342,24 @@ def _disabled_player(player_id):
         "enabled": False,
         "id": player_id,
         "drink": "",
+        "drink_code": "",
         "family": "",
+        "neon_color": "",
+        "flavor_notes": "",
+        "garnish": "",
+        "glassware": "",
+        "visual_tell": "",
         "charge": 0,
         "charge_units": 0,
+        "service_level": "",
         "risk_delta": 0,
         "bluff_delta": 0,
         "focus_delta": 0,
+        "current_effects": {"risk": 0, "bluff": 0, "focus": 0},
         "mood": "",
         "decision_hint": "",
         "table_talk_cue": "",
+        "broadcast_line": "",
         "responsible_label": RESPONSIBLE_LABEL,
     }
 
