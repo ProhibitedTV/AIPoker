@@ -143,6 +143,11 @@ class AppSettings:
     overlay_rotation_enabled: bool = True
     overlay_rotation_interval_ms: int = 9000
     overlay_narration_enabled: bool = False
+    overlay_showrunner_enabled: bool = True
+    overlay_voice_cues_enabled: bool = True
+    overlay_voice_cooldown_ms: int = 9000
+    overlay_non_reader_mode: bool = True
+    overlay_night_city_intensity: str = "high"
     overlay_recap_duration_ms: int = 7500
     overlay_moment_duration_ms: int = 6200
     overlay_visual_debug: bool = False
@@ -153,6 +158,7 @@ class AppSettings:
     casino_bumper_frequency: str = "selected_hands"
     casino_bumper_duration_ms: int = 6500
     casino_bumper_responsible_label: bool = True
+    casino_bumper_style: str = "night_city_recaps"
     tts_enabled: bool = False
     tts_volume: float = 0.8
     tts_rate: int = 175
@@ -186,11 +192,16 @@ class AppSettings:
         self.overlay_recap_duration_ms = max(1200, int(self.overlay_recap_duration_ms))
         self.overlay_moment_duration_ms = max(1200, int(self.overlay_moment_duration_ms))
         self.overlay_rotation_interval_ms = max(5000, int(self.overlay_rotation_interval_ms))
+        self.overlay_voice_cooldown_ms = max(3000, int(self.overlay_voice_cooldown_ms))
+        if self.overlay_night_city_intensity not in {"low", "medium", "high"}:
+            self.overlay_night_city_intensity = "high"
         self.overlay_follow_message = str(self.overlay_follow_message or "Follow for 24/7 autonomous AI poker.")[:96]
         self.overlay_chat_prompt = str(self.overlay_chat_prompt or "Call out the next winner in chat.")[:96]
         self.casino_bumper_duration_ms = max(4000, min(8000, int(self.casino_bumper_duration_ms)))
         if self.casino_bumper_frequency not in {"selected_hands", "every_hand", "off"}:
             self.casino_bumper_frequency = "selected_hands"
+        if self.casino_bumper_style not in {"night_city_recaps", "classic"}:
+            self.casino_bumper_style = "night_city_recaps"
 
     @classmethod
     def load(cls, path):

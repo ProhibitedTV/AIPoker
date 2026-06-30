@@ -67,6 +67,11 @@ def test_overlay_director_cli_overrides(tmp_path):
                 "--no-overlay-rotation",
                 "--overlay-rotation-interval", "12.5",
                 "--overlay-narration",
+                "--no-showrunner",
+                "--no-overlay-voice-cues",
+                "--overlay-voice-cooldown", "14",
+                "--no-non-reader-mode",
+                "--night-city-intensity", "medium",
                 "--overlay-recap-duration", "8.25",
                 "--overlay-moment-duration", "5.5",
                 "--overlay-visual-debug",
@@ -77,6 +82,11 @@ def test_overlay_director_cli_overrides(tmp_path):
     assert not settings.overlay_rotation_enabled
     assert settings.overlay_rotation_interval_ms == 12500
     assert settings.overlay_narration_enabled
+    assert not settings.overlay_showrunner_enabled
+    assert not settings.overlay_voice_cues_enabled
+    assert settings.overlay_voice_cooldown_ms == 14000
+    assert not settings.overlay_non_reader_mode
+    assert settings.overlay_night_city_intensity == "medium"
     assert settings.overlay_recap_duration_ms == 8250
     assert settings.overlay_moment_duration_ms == 5500
     assert settings.overlay_visual_debug

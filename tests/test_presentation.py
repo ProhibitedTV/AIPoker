@@ -56,6 +56,12 @@ def test_presentation_table_mode_when_no_one_is_acting():
     result = snapshot()
     assert result["schema_version"] == 1
     assert result["mode"] == "table"
+    assert result["showrunner_schema_version"] == 1
+    assert result["beat_type"] == "table"
+    assert result["viewer_focus"]
+    assert result["voice_cue"]["enabled"]
+    assert result["non_reader_labels"]["enabled"]
+    assert result["audience_hook"]
     assert result["chip_leader"] == "atlas"
     assert result["profile_signals"]["vega"]["risk_appetite"] == 78
     assert result["engagement"]["enabled"]
@@ -69,8 +75,12 @@ def test_presentation_decision_mode_explains_call_price():
     players[1]["legal_actions"] = [{"action": "fold"}, {"action": "call", "amount": 120}, {"action": "raise"}]
     result = snapshot(players)
     assert result["mode"] == "decision"
+    assert result["beat_type"] == "decision"
     assert result["spotlight_seat_ids"] == ["vega"]
     assert "120 chips" in result["explainer"]
+    assert "120" in result["viewer_focus"]
+    assert result["non_reader_labels"]["items"][0]["label"] == "TO CALL"
+    assert "Decision point" in result["voice_cue"]["line"]
     assert "Vega" in result["engagement"]["prompt"]
     assert "call, raise, or fold" in result["engagement"]["prompt"]
 
@@ -78,6 +88,7 @@ def test_presentation_decision_mode_explains_call_price():
 def test_presentation_big_pot_mode():
     result = snapshot(pot=520)
     assert result["mode"] == "big_pot"
+    assert result["beat_type"] == "tension"
     assert result["visual_intensity"] >= 70
 
 
@@ -86,12 +97,14 @@ def test_presentation_all_in_mode_beats_big_pot():
     players[0]["all_in"] = True
     result = snapshot(players, pot=1000)
     assert result["mode"] == "all_in"
+    assert result["beat_type"] == "all_in"
     assert result["spotlight_seat_ids"] == ["atlas"]
 
 
 def test_presentation_showdown_mode_before_award():
     result = snapshot(stage="Showdown")
     assert result["mode"] == "showdown"
+    assert result["beat_type"] == "showdown"
     assert "Best five-card" in result["explainer"]
 
 
@@ -100,6 +113,7 @@ def test_presentation_recap_for_fold_win_and_split_pot():
     players[0]["action"] = "Won 480"
     result = snapshot(players, stage="Showdown", pot=0, commentary=["Atlas wins 480 with Uncontested."])
     assert result["mode"] == "recap"
+    assert result["beat_type"] in {"winner", "intermission"}
     assert result["recap"]["winners"][0]["name"] == "Atlas"
     assert result["recap"]["amount"] == 480
 
@@ -126,6 +140,8 @@ def test_casino_bumper_winner_jackpot_and_disabled_state():
     assert result["bumper"]["enabled"]
     assert result["bumper"]["kind"] == "winner_jackpot"
     assert result["bumper"]["visual_family"] == "winner_cards"
+    assert result["bumper"]["style"] == "night_city_recaps"
+    assert result["bumper"]["theme"] == "Night City casino recap"
     assert "previous poker hand" in result["bumper"]["relevance"]
     assert result["engagement"]["context"] == "Intermission prompt"
     assert "Atlas" in result["engagement"]["prompt"]
@@ -147,6 +163,18 @@ def test_engagement_copy_is_sanitized_and_can_be_disabled():
 
     disabled = snapshot(engagement_enabled=False)
     assert not disabled["engagement"]["enabled"]
+
+
+def test_showrunner_can_be_disabled_and_voice_cues_removed():
+    players = base_players()
+    players[0]["next_to_act"] = True
+    players[0]["legal_actions"] = [{"action": "check"}, {"action": "bet"}]
+    result = snapshot(players, showrunner_enabled=False, voice_cues_enabled=False)
+
+    assert result["showrunner_schema_version"] == 1
+    assert result["beat_type"] == "table"
+    assert not result["voice_cue"]["enabled"]
+    assert not result["non_reader_labels"]["enabled"]
 
 
 def test_casino_bumper_pot_reels_for_big_and_split_pots():

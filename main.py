@@ -118,6 +118,11 @@ def parse_args(argv=None):
     parser.add_argument("--no-overlay-rotation", action="store_true", help="Disable rotating OBS analysis desk panels")
     parser.add_argument("--overlay-rotation-interval", type=float, help="Seconds between OBS analysis desk panels")
     parser.add_argument("--overlay-narration", action="store_true", help="Enable browser speech narration for OBS analysis panels")
+    parser.add_argument("--no-showrunner", action="store_true", help="Disable the OBS showrunner focus/voice cue layer")
+    parser.add_argument("--no-overlay-voice-cues", action="store_true", help="Disable showrunner voice cue metadata and speech")
+    parser.add_argument("--overlay-voice-cooldown", type=float, help="Minimum seconds between OBS showrunner voice cues")
+    parser.add_argument("--no-non-reader-mode", action="store_true", help="Disable large icon/label helpers for non-poker viewers")
+    parser.add_argument("--night-city-intensity", choices=("low", "medium", "high"), help="Cyberpunk visual intensity for the OBS source")
     parser.add_argument("--overlay-recap-duration", type=float, help="Seconds to hold between-hand recap visuals")
     parser.add_argument("--overlay-moment-duration", type=float, help="Seconds to hold major moment visuals")
     parser.add_argument("--overlay-visual-debug", action="store_true", help="Show OBS safe-area and director-mode labels")
@@ -176,6 +181,16 @@ def build_settings(args):
         settings.overlay_rotation_interval_ms = max(5000, int(args.overlay_rotation_interval * 1000))
     if args.overlay_narration:
         settings.overlay_narration_enabled = True
+    if args.no_showrunner:
+        settings.overlay_showrunner_enabled = False
+    if args.no_overlay_voice_cues:
+        settings.overlay_voice_cues_enabled = False
+    if args.overlay_voice_cooldown is not None:
+        settings.overlay_voice_cooldown_ms = max(3000, int(args.overlay_voice_cooldown * 1000))
+    if args.no_non_reader_mode:
+        settings.overlay_non_reader_mode = False
+    if args.night_city_intensity:
+        settings.overlay_night_city_intensity = args.night_city_intensity
     if args.overlay_recap_duration is not None:
         settings.overlay_recap_duration_ms = max(1200, int(args.overlay_recap_duration * 1000))
     if args.overlay_moment_duration is not None:
@@ -310,9 +325,12 @@ def main(argv=None):
         casino_bumper_duration_ms=settings.casino_bumper_duration_ms,
         casino_bumper_responsible_label=settings.casino_bumper_responsible_label,
         casino_bumper_frequency=settings.casino_bumper_frequency,
+        casino_bumper_style=settings.casino_bumper_style,
         engagement_enabled=settings.overlay_engagement_enabled,
         engagement_follow_message=settings.overlay_follow_message,
         engagement_chat_prompt=settings.overlay_chat_prompt,
+        showrunner_enabled=settings.overlay_showrunner_enabled,
+        voice_cues_enabled=settings.overlay_voice_cues_enabled,
         history_path=settings.hand_history_path,
         checkpoint_path=settings.checkpoint_path,
         equity_samples=settings.equity_samples,
@@ -373,6 +391,11 @@ def main(argv=None):
             rotation_enabled=settings.overlay_rotation_enabled,
             rotation_interval_ms=settings.overlay_rotation_interval_ms,
             narration_enabled=settings.overlay_narration_enabled,
+            showrunner_enabled=settings.overlay_showrunner_enabled,
+            voice_cues_enabled=settings.overlay_voice_cues_enabled,
+            voice_cooldown_ms=settings.overlay_voice_cooldown_ms,
+            non_reader_mode=settings.overlay_non_reader_mode,
+            night_city_intensity=settings.overlay_night_city_intensity,
             recap_duration_ms=settings.overlay_recap_duration_ms,
             moment_duration_ms=settings.overlay_moment_duration_ms,
             visual_debug=settings.overlay_visual_debug,

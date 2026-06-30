@@ -25,9 +25,13 @@ def build_presentation_snapshot(
     casino_bumper_duration_ms=6500,
     casino_bumper_responsible_label=True,
     casino_bumper_frequency="selected_hands",
+    casino_bumper_style="night_city_recaps",
     engagement_enabled=True,
     engagement_follow_message="Follow for 24/7 autonomous AI poker.",
     engagement_chat_prompt="Call out the next winner in chat.",
+    showrunner_enabled=True,
+    voice_cues_enabled=True,
+    lounge=None,
 ):
     """Return non-authoritative visual direction for the stream overlay.
 
@@ -47,6 +51,7 @@ def build_presentation_snapshot(
     personality_arcs = personality_arcs or {}
     program = program or {}
     variety = variety or {}
+    lounge = lounge or {}
 
     actor = next((player for player in players if player.get("next_to_act")), None)
     winners = _winner_players(players)
@@ -119,6 +124,7 @@ def build_presentation_snapshot(
         duration_ms=casino_bumper_duration_ms,
         responsible_label=casino_bumper_responsible_label,
         frequency=casino_bumper_frequency,
+        style=casino_bumper_style,
     )
     engagement = _engagement_payload(
         players=players,
@@ -138,6 +144,28 @@ def build_presentation_snapshot(
         follow_message=engagement_follow_message,
         chat_prompt=engagement_chat_prompt,
     )
+    showrunner = _showrunner_payload(
+        enabled=showrunner_enabled,
+        voice_enabled=voice_cues_enabled,
+        mode=mode,
+        headline=headline,
+        explainer=explainer,
+        players=players,
+        actor=actor,
+        winners=winners,
+        all_ins=all_ins,
+        chip_leader=chip_leader,
+        stage=stage,
+        pot=pot,
+        big_blind=big_blind,
+        tournament=tournament,
+        recap=recap,
+        bumper=bumper,
+        engagement=engagement,
+        variety=variety,
+        lounge=lounge,
+        hand_number=hand_number,
+    )
     return {
         "schema_version": PRESENTATION_SCHEMA_VERSION,
         "mode": mode,
@@ -151,6 +179,12 @@ def build_presentation_snapshot(
         "hand": int(hand_number or 0),
         "chip_leader": chip_leader.get("id") if chip_leader else None,
         "profile_signals": _profile_signals(players, personality_arcs),
+        "showrunner_schema_version": 1,
+        "beat_type": showrunner["beat_type"],
+        "viewer_focus": showrunner["viewer_focus"],
+        "voice_cue": showrunner["voice_cue"],
+        "non_reader_labels": showrunner["non_reader_labels"],
+        "audience_hook": showrunner["audience_hook"],
     }
 
 
@@ -238,8 +272,10 @@ def _bumper_payload(
     duration_ms,
     responsible_label,
     frequency,
+    style,
 ):
     duration_ms = max(4000, min(8000, int(duration_ms or 6500)))
+    style = str(style or "night_city_recaps")
     disabled = {
         "enabled": False,
         "kind": "",
@@ -250,6 +286,8 @@ def _bumper_payload(
         "stats": {},
         "visual_family": "",
         "relevance": "",
+        "style": style,
+        "theme": "Night City casino recap" if style == "night_city_recaps" else "Classic broadcast recap",
         "responsible_label": bool(responsible_label),
     }
     if not enabled or str(frequency or "selected_hands").lower() in {"off", "disabled", "never"}:
@@ -278,35 +316,35 @@ def _bumper_payload(
 
     if next_format:
         kind = "next_format"
-        title = "Next table block"
+        title = "Next Night City table block" if style == "night_city_recaps" else "Next table block"
         subtitle = variety.get("title") or "The broadcast is rotating to a fresh segment."
     elif split:
         kind = "pot_reels"
-        title = "Split pot reel"
+        title = "Neon split-pot reel" if style == "night_city_recaps" else "Split pot reel"
         subtitle = f"{' + '.join(player.get('name', 'Player') for player in winners)} share {amount:,} chips."
     elif all_in_hand:
         kind = "pot_reels"
-        title = "All-in pressure wheel"
+        title = "Underground all-in wheel" if style == "night_city_recaps" else "All-in pressure wheel"
         subtitle = "The intermission tracks the all-in pot, winner, and hand result."
     elif big_pot:
         kind = "pot_reels"
-        title = "Monster pot reel"
+        title = "Monster pot neon reel" if style == "night_city_recaps" else "Monster pot reel"
         subtitle = f"{amount:,} chips moved across the felt."
     elif hot_streak:
         kind = "hot_streak"
-        title = "Hot streak spotlight"
+        title = "Redline hot-streak meter" if style == "night_city_recaps" else "Hot streak spotlight"
         subtitle = f"{winner.get('name', 'Winner')} is playing with visible momentum."
     elif leader and int(hand_number or 0) % 5 == 0:
         kind = "chip_leader"
-        title = "Chip leader board"
+        title = "Skyline chip-leader board" if style == "night_city_recaps" else "Chip leader board"
         subtitle = f"{leader.get('name', 'The leader')} controls the biggest stack."
     elif winner:
         kind = "winner_jackpot"
-        title = "Winner showcase"
+        title = "Night City winner showcase" if style == "night_city_recaps" else "Winner showcase"
         subtitle = f"{winner.get('name', 'Winner')} takes the previous hand."
     else:
         kind = "chip_leader"
-        title = "Chip leader board"
+        title = "Skyline chip-leader board" if style == "night_city_recaps" else "Chip leader board"
         subtitle = f"{(leader or {}).get('name', 'The leader')} controls the biggest stack."
 
     visual_family = _bumper_visual_family(kind, all_in_hand=all_in_hand)
@@ -337,7 +375,10 @@ def _bumper_payload(
             "leader": (leader or {}).get("name", ""),
             "hand": recap.get("hand", ""),
             "format": variety.get("title", ""),
+            "scene": "Night City recap" if style == "night_city_recaps" else "Broadcast recap",
         },
+        "style": style,
+        "theme": "Night City casino recap" if style == "night_city_recaps" else "Classic broadcast recap",
         "responsible_label": bool(responsible_label),
     }
 
@@ -459,6 +500,183 @@ def _engagement_payload(
         "focus": focus,
         "program": program.get("segment") or variety.get("title") or "AI Poker League",
     }
+
+
+def _showrunner_payload(
+    *,
+    enabled,
+    voice_enabled,
+    mode,
+    headline,
+    explainer,
+    players,
+    actor,
+    winners,
+    all_ins,
+    chip_leader,
+    stage,
+    pot,
+    big_blind,
+    tournament,
+    recap,
+    bumper,
+    engagement,
+    variety,
+    lounge,
+    hand_number,
+):
+    if not enabled:
+        return {
+            "beat_type": "table",
+            "viewer_focus": explainer or "The table is live.",
+            "voice_cue": {"enabled": False},
+            "non_reader_labels": {"enabled": False, "items": []},
+            "audience_hook": "",
+        }
+
+    stage_key = str(stage or "").lower()
+    amount = int(recap.get("amount", 0) or 0)
+    bb = max(1, int(big_blind or 1))
+    beat_type = "table"
+    focus = explainer or "The table is live."
+    priority = 25
+    speaker = "Night City host"
+
+    if bumper.get("enabled"):
+        beat_type = "intermission"
+        focus = bumper.get("relevance") or "This short casino-floor bumper recaps the last poker hand."
+        priority = 58
+    elif tournament.get("complete"):
+        beat_type = "winner"
+        champion = next((player for player in players if player.get("id") == tournament.get("winner")), None)
+        focus = f"{(champion or {}).get('name', 'The champion')} wins the sit-and-go trophy."
+        priority = 92
+    elif winners:
+        beat_type = "winner"
+        names = " + ".join(player.get("name", "Winner") for player in winners)
+        hand = recap.get("hand") or "the winning hand"
+        focus = f"{names} just won {amount:,} chips with {hand}." if amount else f"{names} just won the hand."
+        priority = 88
+    elif stage_key == "showdown":
+        beat_type = "showdown"
+        focus = "Cards are face-up. The best five-card poker hand wins each eligible pot."
+        priority = 76
+    elif all_ins:
+        beat_type = "all_in"
+        names = " + ".join(player.get("name", "All-in") for player in all_ins)
+        focus = f"{names} is all-in. Every remaining card can decide the pot."
+        priority = 84
+    elif mode == "big_pot":
+        beat_type = "tension"
+        focus = f"The pot is already worth {pot / bb:.0f} big blinds."
+        priority = 68
+    elif actor:
+        beat_type = "decision"
+        focus = _viewer_decision_focus(actor)
+        priority = 62
+    elif variety.get("enabled") and int(variety.get("hands_remaining", 99) or 99) <= 1:
+        beat_type = "format_change"
+        focus = f"One hand until the next table block: {variety.get('title', 'fresh format')}."
+        priority = 54
+    elif lounge.get("enabled") and int(lounge.get("pressure_index", 0) or 0) >= 70:
+        beat_type = "lounge"
+        focus = lounge.get("atmosphere_line") or lounge.get("broadcast_cue") or "The AI lounge is changing the room pressure."
+        priority = 44
+
+    labels = _non_reader_labels(
+        beat_type=beat_type,
+        actor=actor,
+        winners=winners,
+        all_ins=all_ins,
+        chip_leader=chip_leader,
+        pot=pot,
+        big_blind=bb,
+        recap=recap,
+        lounge=lounge,
+    )
+    line = _voice_line(beat_type, focus, headline, engagement)
+    cue_id_parts = [
+        beat_type,
+        str(int(hand_number or 0)),
+        str(stage or ""),
+        str((actor or {}).get("id") or ""),
+        ",".join(player.get("id", "") for player in winners or all_ins),
+        str(amount or pot or 0),
+    ]
+    voice_cue = {
+        "enabled": bool(voice_enabled and line),
+        "id": "|".join(cue_id_parts),
+        "priority": priority,
+        "speaker": speaker,
+        "line": line if voice_enabled else "",
+        "caption": focus,
+        "duration_ms": 4200 if priority < 80 else 5600,
+        "ducking": 0.38 if priority < 80 else 0.55,
+    }
+    return {
+        "beat_type": beat_type,
+        "viewer_focus": focus,
+        "voice_cue": voice_cue,
+        "non_reader_labels": {"enabled": True, "items": labels},
+        "audience_hook": engagement.get("prompt", ""),
+    }
+
+
+def _viewer_decision_focus(actor):
+    legal = list(actor.get("legal_actions") or [])
+    call = next((entry for entry in legal if entry.get("action") == "call"), None)
+    can_raise = any(entry.get("action") in {"bet", "raise"} for entry in legal)
+    name = actor.get("name", "The player")
+    if call:
+        amount = int(call.get("amount", 0) or 0)
+        options = "call, raise, or fold" if can_raise else "call or fold"
+        return f"{name} must call {amount:,} chips to stay in, or choose to {options}."
+    if can_raise:
+        return f"{name} can check for free or bet to put pressure on the table."
+    return f"{name} can check for free and pass the action along."
+
+
+def _non_reader_labels(*, beat_type, actor, winners, all_ins, chip_leader, pot, big_blind, recap, lounge):
+    labels = [{"label": "POT", "value": f"{int(pot or 0):,}", "tone": "gold"}]
+    if beat_type == "decision" and actor:
+        call = next((entry for entry in (actor.get("legal_actions") or []) if entry.get("action") == "call"), None)
+        if call:
+            labels.insert(0, {"label": "TO CALL", "value": f"{int(call.get('amount', 0) or 0):,}", "tone": "cyan"})
+        else:
+            labels.insert(0, {"label": "FREE", "value": "CHECK", "tone": "cyan"})
+        labels.append({"label": "ACTING", "value": actor.get("name", "AI"), "tone": "pink"})
+    elif beat_type == "all_in":
+        names = " + ".join(player.get("name", "AI") for player in all_ins)
+        labels.insert(0, {"label": "ALL-IN", "value": names or "YES", "tone": "danger"})
+    elif beat_type == "winner":
+        names = " + ".join(player.get("name", "Winner") for player in winners) or recap.get("winners", [{}])[0].get("name", "Winner")
+        labels.insert(0, {"label": "WINNER", "value": names, "tone": "gold"})
+        if recap.get("hand"):
+            labels.append({"label": "HAND", "value": recap.get("hand"), "tone": "cyan"})
+    elif beat_type == "tension":
+        labels.insert(0, {"label": "BIG POT", "value": f"{int((pot or 0) / max(1, big_blind))} BB", "tone": "danger"})
+    elif beat_type == "lounge":
+        labels.insert(0, {"label": "LOUNGE", "value": lounge.get("table_mood", "NEON"), "tone": "pink"})
+    elif chip_leader:
+        labels.append({"label": "LEADER", "value": chip_leader.get("name", "AI"), "tone": "cyan"})
+    return labels[:4]
+
+
+def _voice_line(beat_type, focus, headline, engagement):
+    prefix = {
+        "decision": "Decision point.",
+        "tension": "Big pot brewing.",
+        "all_in": "All-in pressure.",
+        "showdown": "Showdown.",
+        "winner": "Hand complete.",
+        "lounge": "From the AI lounge.",
+        "format_change": "Format shift coming.",
+        "intermission": "Night City recap.",
+    }.get(beat_type, "")
+    line = " ".join(part for part in (prefix, focus) if part).strip()
+    if not line:
+        line = headline or engagement.get("prompt", "")
+    return _safe_engagement_text(line, "", 180)
 
 
 def _safe_engagement_text(value, fallback, limit):

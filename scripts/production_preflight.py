@@ -27,6 +27,8 @@ REQUIRED_OVERLAY_MARKERS = (
     'id="audienceRibbon"',
     'id="winnerEngagement"',
     'id="broadcastRotator"',
+    'id="showrunnerFocus"',
+    'id="voiceFlash"',
     'id="healthPill"',
     "OLLAMA LIVE",
     "MODEL FALLBACK",
@@ -68,6 +70,8 @@ def check_settings(settings):
     checks.append(_result("continuous.play", "pass" if settings.continuous_play else "warn", "Continuous play is enabled." if settings.continuous_play else "Single-hand mode is set; the 24/7 stream will stop."))
     checks.append(_result("simulation.disclaimer", "pass" if settings.overlay_disclaimer_enabled else "fail", "Simulation-only disclaimer is enabled." if settings.overlay_disclaimer_enabled else "Simulation disclaimer is disabled; public release should keep it visible."))
     checks.append(_result("director.layer", "pass" if settings.overlay_director_enabled else "warn", "Broadcast director layer is enabled." if settings.overlay_director_enabled else "Director moments are disabled; the overlay will be flatter."))
+    checks.append(_result("showrunner.layer", "pass" if settings.overlay_showrunner_enabled else "warn", "Showrunner focus/voice layer is enabled." if settings.overlay_showrunner_enabled else "Showrunner focus layer is disabled; casual viewers may need more reading."))
+    checks.append(_result("nonreader.labels", "pass" if settings.overlay_non_reader_mode else "warn", "Non-reader icon labels are enabled." if settings.overlay_non_reader_mode else "Non-reader helpers are disabled."))
     checks.append(_result("analysis.rotation", "pass" if settings.overlay_rotation_enabled else "warn", "OBS analysis rotator is enabled." if settings.overlay_rotation_enabled else "Analysis rotator is disabled; long sessions may feel repetitive."))
     checks.append(_result("safe.bumpers", "pass" if settings.casino_bumpers_enabled else "warn", "Safe casino-style bumpers are enabled." if settings.casino_bumpers_enabled else "Casino-style intermission variety is disabled."))
     checks.append(_result("single.instance", "pass" if not settings.allow_multiple_instances else "warn", "Single-instance launch guard is enabled." if not settings.allow_multiple_instances else "Multiple instances are allowed; OBS/audio ownership can become confusing."))

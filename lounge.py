@@ -162,6 +162,13 @@ SOUNDTRACKS = (
     "low neon lounge bed between hands",
 )
 
+SERVICE_BOTS = (
+    "Mira-7",
+    "Chrome Valet",
+    "Juno Static",
+    "The Neon Waiter",
+)
+
 PHASES = (
     {"name": "Doors open", "risk": 0, "focus": 2, "copy": "The AI lounge is warming up."},
     {"name": "Neon hour", "risk": 3, "focus": 1, "copy": "Synthetic lounge service is adding table texture."},
@@ -204,12 +211,26 @@ def build_lounge_snapshot(players, hand_number=0, *, enabled=True, interval_hand
         "focus": round(total_focus / player_count),
     }
     pressure_index = max(0, min(100, average_charge + table_effects["risk"] * 2 + table_effects["bluff"] - table_effects["focus"]))
+    service_bot = SERVICE_BOTS[(service_round + len(player_states)) % len(SERVICE_BOTS)]
+    table_mood = _table_mood(pressure_index, phase["name"])
+    rivalry = _rivalry_snapshot(player_states)
+    scene_name = f"{venue['name']} // {venue['district']}"
+    atmosphere_line = (
+        f"{service_bot} sweeps {venue['lighting']} through the {venue['booth']} "
+        f"while the table mood reads {table_mood.lower()}."
+    )
     return {
         "schema_version": LOUNGE_SCHEMA_VERSION,
         "enabled": True,
         "hand": hand_number,
         "phase": phase["name"],
         "venue": venue,
+        "scene_name": scene_name,
+        "venue_zone": venue["booth"],
+        "service_bot": service_bot,
+        "table_mood": table_mood,
+        "rivalry": rivalry,
+        "atmosphere_line": atmosphere_line,
         "service_round": service_round,
         "night_progress": night_progress,
         "average_charge": average_charge,
@@ -217,7 +238,7 @@ def build_lounge_snapshot(players, hand_number=0, *, enabled=True, interval_hand
         "table_effects": table_effects,
         "table_label": "AI lounge service",
         "table_copy": phase["copy"],
-        "broadcast_cue": f"{venue['name']} - {phase['name']}: {phase['copy']}",
+        "broadcast_cue": f"{scene_name} - {phase['name']}: {phase['copy']}",
         "soundtrack": SOUNDTRACKS[(cycle_offset // max(1, interval_hands)) % len(SOUNDTRACKS)],
         "safety_copy": "Synthetic AI lounge service only; no real alcohol.",
         "responsible_label": RESPONSIBLE_LABEL,
@@ -314,6 +335,38 @@ def _service_level(charge):
     return "idle"
 
 
+def _table_mood(pressure_index, phase_name):
+    if pressure_index >= 85:
+        return "Redline room"
+    if pressure_index >= 65:
+        return "High-voltage lounge"
+    if "midnight" in str(phase_name).lower():
+        return "Midnight signal"
+    if pressure_index >= 40:
+        return "Neon social"
+    return "Low-glow warmup"
+
+
+def _rivalry_snapshot(player_states):
+    states = sorted(
+        player_states.values(),
+        key=lambda state: (int(state.get("charge", 0)), int(state.get("risk_delta", 0))),
+        reverse=True,
+    )
+    if len(states) < 2:
+        return {"active": False, "headline": "", "heat": 0, "left": "", "right": "", "angle": ""}
+    left, right = states[0], states[1]
+    heat = max(0, min(100, round((int(left["charge"]) + int(right["charge"])) / 2)))
+    return {
+        "active": heat >= 30,
+        "headline": f"{left['name']} vs {right['name']}",
+        "heat": heat,
+        "left": left["id"],
+        "right": right["id"],
+        "angle": f"{left['family']} energy into {right['family']} resistance",
+    }
+
+
 def _disabled(hand_number):
     return {
         "schema_version": LOUNGE_SCHEMA_VERSION,
@@ -321,6 +374,12 @@ def _disabled(hand_number):
         "hand": int(hand_number or 0),
         "phase": "",
         "venue": {},
+        "scene_name": "",
+        "venue_zone": "",
+        "service_bot": "",
+        "table_mood": "",
+        "rivalry": {"active": False, "headline": "", "heat": 0, "left": "", "right": "", "angle": ""},
+        "atmosphere_line": "",
         "service_round": 0,
         "night_progress": 0,
         "average_charge": 0,

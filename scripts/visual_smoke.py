@@ -14,6 +14,8 @@ from scripts.broadcast_smoke import VISUAL_FIXTURES, generate_artifacts  # noqa:
 
 REQUIRED_OVERLAY_MARKERS = (
     "director-lower-third",
+    "showrunner-focus",
+    "non-reader-strip",
     "equity-race",
     "recap-card",
     "casino-bumper",
