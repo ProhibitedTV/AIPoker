@@ -123,6 +123,7 @@ def parse_args(argv=None):
     parser.add_argument("--overlay-voice-cooldown", type=float, help="Minimum seconds between OBS showrunner voice cues")
     parser.add_argument("--no-non-reader-mode", action="store_true", help="Disable large icon/label helpers for non-poker viewers")
     parser.add_argument("--night-city-intensity", choices=("low", "medium", "high"), help="Cyberpunk visual intensity for the OBS source")
+    parser.add_argument("--no-venue-theme", action="store_true", help="Disable OBS back-alley casino venue signage")
     parser.add_argument("--overlay-recap-duration", type=float, help="Seconds to hold between-hand recap visuals")
     parser.add_argument("--overlay-moment-duration", type=float, help="Seconds to hold major moment visuals")
     parser.add_argument("--overlay-visual-debug", action="store_true", help="Show OBS safe-area and director-mode labels")
@@ -195,6 +196,8 @@ def build_settings(args):
         settings.overlay_non_reader_mode = False
     if args.night_city_intensity:
         settings.overlay_night_city_intensity = args.night_city_intensity
+    if args.no_venue_theme:
+        settings.overlay_venue_theme_enabled = False
     if args.overlay_recap_duration is not None:
         settings.overlay_recap_duration_ms = max(1200, int(args.overlay_recap_duration * 1000))
     if args.overlay_moment_duration is not None:
@@ -414,6 +417,7 @@ def main(argv=None):
             voice_cooldown_ms=settings.overlay_voice_cooldown_ms,
             non_reader_mode=settings.overlay_non_reader_mode,
             night_city_intensity=settings.overlay_night_city_intensity,
+            venue_theme_enabled=settings.overlay_venue_theme_enabled,
             recap_duration_ms=settings.overlay_recap_duration_ms,
             moment_duration_ms=settings.overlay_moment_duration_ms,
             visual_debug=settings.overlay_visual_debug,

@@ -33,6 +33,8 @@ REQUIRED_OVERLAY_MARKERS = (
     'data-lower-third-mode="table"',
     "renderLowerThird",
     "body.lower-third-on .ticker.lower-third",
+    'id="venueChip"',
+    "venueThemeOn",
     "hud-minimal",
     "card.holo-card",
     'id="showrunnerFocus"',

@@ -72,6 +72,37 @@ def test_presentation_table_mode_when_no_one_is_acting():
     assert result["engagement"]["enabled"]
     assert "Call out the next winner" in result["engagement"]["prompt"]
     assert "no wagers" in result["engagement"]["safe_label"]
+    assert result["venue"]["schema_version"] == 1
+    assert result["venue"]["enabled"]
+    assert "Simulation District" in result["venue"]["header_label"]
+    assert result["venue"]["safe_label"] == "simulation-only venue skin"
+
+
+def test_presentation_venue_theme_uses_public_lounge_location():
+    result = snapshot(
+        lounge={
+            "enabled": True,
+            "venue": {
+                "name": "Black Circuit Lounge",
+                "district": "Dealer's Row",
+                "booth": "private server cage",
+                "lighting": "gold chip LEDs",
+                "weather": "static drizzle",
+            },
+            "venue_zone": "private server cage",
+            "service_bot": "Mira-7",
+            "table_mood": "Midnight circuit",
+            "pressure_index": 64,
+            "atmosphere_line": "Mira-7 sweeps gold chip LEDs through the private server cage.",
+        }
+    )
+    venue = result["venue"]
+    assert venue["name"] == "Black Circuit Lounge"
+    assert "Dealer's Row" in venue["header_label"]
+    assert "private server cage" in venue["table_label"]
+    assert "gold chip LEDs" in venue["footer_line"]
+    assert venue["status_chip"] == "Midnight circuit // pressure 64%"
+    assert venue["signs"]["right"] == "Mira-7 ONLINE"
 
 
 def test_presentation_decision_mode_explains_call_price():
