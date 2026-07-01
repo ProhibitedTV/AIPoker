@@ -123,7 +123,7 @@
     {"id": "baccarat_pit", "active_game": "baccarat", "title": "Baccarat Pit", "duration_rounds": 2, "visual_skin": "magenta_baccarat", "host_intro": "Fast cards in the baccarat pit: banker, player, or tie on the neon rail.", "viewer_hook": "Pick a side for bragging rights before the reveal."},
     {"id": "intermission", "active_game": "intermission", "title": "Next Room Opens", "duration_rounds": 1, "visual_skin": "city_transition", "host_intro": "Room change: the underground casino resets the lights for the next segment.", "viewer_hook": "Stay for the next room reveal."}
   ],
-  "audio_enabled": true,
+  "audio_enabled": false,
   "audio_volume": 0.45,
   "ambience_enabled": true,
   "ambience_volume": 0.16,

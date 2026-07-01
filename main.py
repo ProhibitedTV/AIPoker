@@ -145,6 +145,7 @@ def parse_args(argv=None):
     parser.add_argument("--reduced-motion", action="store_true")
     parser.add_argument("--tts", action="store_true")
     parser.add_argument("--mute", action="store_true", help="Disable generated game sound cues")
+    parser.add_argument("--desktop-audio", action="store_true", help="Opt into local desktop audio playback; headless OBS runs keep this off by default")
     parser.add_argument("--no-ambience", action="store_true")
     parser.add_argument("--no-music", action="store_true", help="Disable the casino music playlist")
     parser.add_argument("--audio-volume", type=float, help="Sound cue volume from 0.0 to 1.0")
@@ -252,6 +253,10 @@ def build_settings(args):
         settings.fullscreen = False
     if args.headless:
         settings.headless = True
+    if settings.headless and not args.desktop_audio:
+        settings.audio_enabled = False
+    if args.desktop_audio and not args.mute:
+        settings.audio_enabled = True
     if args.continuous_play:
         settings.continuous_play = True
     if args.single_hand:

@@ -109,10 +109,11 @@ Confirm:
 
 ### Audio doubled or missing
 
-1. Browser-source audio path: keep OBS **Control audio via OBS** enabled and use the plain `/overlay` URL.
-2. Desktop-capture path: use `/overlay?audio=0` and capture the Python/Qt application audio separately.
-3. Use `?music=0` if only the music bed is doubled.
-4. Confirm `music/` contains WAV tracks, `sound_effects/card_flip.mp3` exists for browser card Foley, and `music_enabled` is true.
+1. Browser-source audio path: keep OBS **Control audio via OBS** enabled, use the plain `/overlay` URL, and launch headless without `--desktop-audio`.
+2. If you can still hear the source in headphones, open OBS Advanced Audio Properties and set the `AI Poker` source monitoring to **Monitor Off**; the stream output can still receive the source.
+3. Desktop-capture path: launch with `--desktop-audio`, use `/overlay?audio=0`, and capture the Python/Qt application audio separately.
+4. Use `?music=0` if only the music bed is doubled.
+5. Confirm `music/` contains WAV tracks, `sound_effects/card_flip.mp3` exists for browser card Foley, and `music_enabled` is true.
 
 ### Corrupted or partial data files
 
