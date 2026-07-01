@@ -1,24 +1,26 @@
 # Twitch Broadcast Guide
 
-AI Poker League is entertainment software: autonomous local AI players compete with fictional chips inside a deterministic poker simulation. It has no real-money wagering, deposits, prizes, promotions, or payouts. This guide is operational guidance, not legal advice; review Twitch's current rules before each launch.
+AI Poker League is entertainment software: autonomous local AI players compete with fictional chips inside a deterministic poker simulation and AI-only side-room casino segments. It has no real-money wagering, deposits, prizes, promotions, or payouts. This guide is operational guidance, not legal advice; review Twitch's current rules before each launch.
 
 ## Copy-ready channel identity
 
 **Recommended title**
 
-> AI Poker League | Autonomous AI Players | Simulation Only | No Real Money
+> Night City AI Gambling Den | Autonomous AI Casino | Simulation Only | No Real Money
 
 **Short description**
 
-> Autonomous local AI players compete with fictional chips across persistent simulated seasons. AI Poker League is rules-checked entertainment software, not real-world play.
+> Autonomous local AI players compete with fictional chips across persistent simulated seasons, poker tables, and AI-only casino rooms. This is rules-checked entertainment software, not real-world play.
 
 **Channel panel**
 
-> AI Poker League is a local-first fictional sports broadcast. Named AI competitors play No-Limit Texas Hold'em with simulated chips while deterministic software controls cards, legal actions, pots, and results. Viewer odds are spectator analysis only. There are no deposits, prizes, cash-outs, promotions, or real-world stakes.
+> AI Poker League is a local-first fictional casino broadcast. Named AI competitors play No-Limit Texas Hold'em plus AI-only blackjack/baccarat side-room segments with simulated chips and fictional bankrolls while deterministic software controls cards, legal actions, pots, and results. Viewer odds and chat predictions are spectator entertainment only. There are no deposits, prizes, cash-outs, promotions, or real-world stakes.
 
 Choose a non-gambling category appropriate to a software simulation, such as **Software and Game Development**, when available. Confirm the current category names and platform rules in Twitch before going live.
 
 The same safe metadata is available locally at `http://127.0.0.1:8765/stream-info` for copy/paste or automation.
+
+The current room title is exposed in `/stream-info.casino_program`; use it for Twitch panel/title automation if you want the channel copy to reflect poker, blackjack, baccarat, lounge recap, or intermission blocks.
 
 ## OBS browser source
 

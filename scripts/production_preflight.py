@@ -24,9 +24,17 @@ REQUIRED_OVERLAY_MARKERS = (
     "FICTIONAL CHIPS",
     "NO REAL MONEY",
     'id="casinoBumper"',
+    'id="casinoRoom"',
+    "renderCasinoRoom",
     'id="audienceRibbon"',
     'id="winnerEngagement"',
     'id="broadcastRotator"',
+    'id="lowerThird"',
+    'data-lower-third-mode="table"',
+    "renderLowerThird",
+    "body.lower-third-on .ticker.lower-third",
+    "hud-minimal",
+    "card.holo-card",
     'id="showrunnerFocus"',
     'id="voiceFlash"',
     'id="healthPill"',
@@ -74,6 +82,7 @@ def check_settings(settings):
     checks.append(_result("nonreader.labels", "pass" if settings.overlay_non_reader_mode else "warn", "Non-reader icon labels are enabled." if settings.overlay_non_reader_mode else "Non-reader helpers are disabled."))
     checks.append(_result("analysis.rotation", "pass" if settings.overlay_rotation_enabled else "warn", "OBS analysis rotator is enabled." if settings.overlay_rotation_enabled else "Analysis rotator is disabled; long sessions may feel repetitive."))
     checks.append(_result("safe.bumpers", "pass" if settings.casino_bumpers_enabled else "warn", "Safe casino-style bumpers are enabled." if settings.casino_bumpers_enabled else "Casino-style intermission variety is disabled."))
+    checks.append(_result("casino.program", "pass" if settings.casino_program_enabled else "warn", "Night City casino programming blocks are enabled." if settings.casino_program_enabled else "AI-only blackjack/baccarat/lounges are disabled."))
     checks.append(_result("single.instance", "pass" if not settings.allow_multiple_instances else "warn", "Single-instance launch guard is enabled." if not settings.allow_multiple_instances else "Multiple instances are allowed; OBS/audio ownership can become confusing."))
     return checks
 
@@ -139,7 +148,8 @@ def check_live_server(base_url, strict_ollama=False):
 
     checks.append(_result("live.health", "pass" if health.get("status") in {"ok", "warning"} else "fail", f"/health status is {health.get('status')!r}."))
     checks.append(_result("live.state_schema", "pass" if state.get("schema_version") == 2 else "fail", f"/state schema_version is {state.get('schema_version')!r}."))
-    checks.append(_result("live.overlay_html", "pass" if "AI Poker Overlay" in overlay and "casinoBumper" in overlay else "fail", "Overlay HTML includes the OBS show surface."))
+    checks.append(_result("live.overlay_html", "pass" if "AI Poker Overlay" in overlay and "casinoBumper" in overlay and "casinoRoom" in overlay else "fail", "Overlay HTML includes the OBS show surface."))
+    checks.append(_result("live.casino_state", "pass" if (state.get("casino") or {}).get("schema_version") == 1 else "fail", "Casino programming state is available on /state."))
     checks.append(_result("live.stream_info", "pass" if "No Real Money" in stream_info.get("title", "") else "fail", "Stream metadata carries no-real-money framing."))
 
     lowered_overlay = overlay.lower()

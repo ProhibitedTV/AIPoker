@@ -172,6 +172,26 @@ def test_casino_bumper_cli_override(tmp_path):
     assert settings.casino_bumper_duration_ms == 6500
 
 
+def test_casino_program_cli_overrides(tmp_path):
+    settings = build_settings(
+        parse_args(
+            [
+                "--config",
+                str(tmp_path / "missing.json"),
+                "--no-casino-program",
+                "--casino-bankroll",
+                "7200",
+                "--casino-unit",
+                "150",
+            ]
+        )
+    )
+    assert not settings.casino_program_enabled
+    assert settings.casino_program_starting_bankroll == 7200
+    assert settings.casino_program_unit == 150
+    assert settings.casino_program_blocks
+
+
 def test_overlay_preview_can_exercise_six_seat_layout():
     assert parse_preview_args(["--players", "6"]).players == 6
     args = parse_preview_args(["--no-director", "--no-variety-rotation", "--no-casino-bumpers", "--visual-debug", "--recap-duration", "8"])

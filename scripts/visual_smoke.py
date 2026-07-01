@@ -14,16 +14,27 @@ from scripts.broadcast_smoke import VISUAL_FIXTURES, generate_artifacts  # noqa:
 
 REQUIRED_OVERLAY_MARKERS = (
     "director-lower-third",
+    "lower-third",
+    "data-lower-third-mode",
+    "renderLowerThird",
+    "lt-module",
+    "hud-minimal",
+    "body.lower-third-on .ticker.lower-third",
+    "card.holo-card",
     "showrunner-focus",
     "non-reader-strip",
     "equity-race",
     "recap-card",
     "casino-bumper",
+    "casino-room",
+    "renderCasinoRoom",
+    "Fictional bankroll ladder",
     "winner-banner",
     "visual-debug",
     "deckToBoard",
     "chipToPot",
     "jackpotSweep",
+    "ltModuleWipe",
 )
 
 
@@ -35,6 +46,9 @@ EXPECTED_FIXTURE_MODES = {
     "showdown": "showdown",
     "recap": "recap",
     "bumper": "recap",
+    "casino_blackjack": "table",
+    "casino_baccarat": "table",
+    "casino_transition": "table",
 }
 
 
@@ -65,6 +79,12 @@ def run_visual_smoke(output_dir, players=4):
                 problems.append(f"{state_path.name} expected {expected}, got {mode}")
             if fixture == "bumper" and not state.get("presentation", {}).get("bumper", {}).get("enabled"):
                 problems.append(f"{state_path.name} expected an enabled casino bumper")
+            if fixture.startswith("casino_") and not state.get("casino", {}).get("enabled"):
+                problems.append(f"{state_path.name} expected enabled casino programming")
+            if fixture == "casino_blackjack" and state.get("casino", {}).get("active_game") != "blackjack":
+                problems.append(f"{state_path.name} expected blackjack room")
+            if fixture == "casino_baccarat" and state.get("casino", {}).get("active_game") != "baccarat":
+                problems.append(f"{state_path.name} expected baccarat room")
     result = {
         "ok": not problems,
         "output": str(output_dir),

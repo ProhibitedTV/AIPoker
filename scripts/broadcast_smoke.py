@@ -23,8 +23,20 @@ CRITICAL_MARKERS = (
     "LIVE ACTION",
     "PRIVATE CARDS",
     "Program warming up",
+    "casino-room",
 )
-VISUAL_FIXTURES = ("table", "decision", "big_pot", "all_in", "showdown", "recap", "bumper")
+VISUAL_FIXTURES = (
+    "table",
+    "decision",
+    "big_pot",
+    "all_in",
+    "showdown",
+    "recap",
+    "bumper",
+    "casino_blackjack",
+    "casino_baccarat",
+    "casino_transition",
+)
 
 
 def fetch(url):
@@ -123,6 +135,27 @@ def apply_visual_fixture(game, fixture):
         game.pot = 0
         game.pots = []
         game.commentary.append("Atlas wins 920 with pair of aces.")
+    elif fixture == "casino_blackjack":
+        game.stage = "Casino Program"
+        game.hand_in_progress = False
+        game.pot = 0
+        game.pots = []
+        game.casino_program.force_fixture("blackjack")
+        game.commentary.append("The blackjack room opens for an AI-only side beat.")
+    elif fixture == "casino_baccarat":
+        game.stage = "Casino Program"
+        game.hand_in_progress = False
+        game.pot = 0
+        game.pots = []
+        game.casino_program.force_fixture("baccarat")
+        game.commentary.append("The baccarat pit flashes open on the neon rail.")
+    elif fixture == "casino_transition":
+        game.stage = "Casino Program"
+        game.hand_in_progress = False
+        game.pot = 0
+        game.pots = []
+        game.casino_program.force_fixture("intermission")
+        game.commentary.append("The Night City room lights sweep toward the next segment.")
 
 
 def generate_artifacts(output_dir, players=4):

@@ -4,6 +4,7 @@ from dataclasses import asdict, dataclass, field, fields
 import json
 from pathlib import Path
 
+from casino_program import default_casino_blocks
 from program_rotation import default_variety_segments
 
 
@@ -159,6 +160,10 @@ class AppSettings:
     casino_bumper_duration_ms: int = 6500
     casino_bumper_responsible_label: bool = True
     casino_bumper_style: str = "night_city_recaps"
+    casino_program_enabled: bool = True
+    casino_program_starting_bankroll: int = 5000
+    casino_program_unit: int = 100
+    casino_program_blocks: list = field(default_factory=default_casino_blocks)
     tts_enabled: bool = False
     tts_volume: float = 0.8
     tts_rate: int = 175
@@ -202,6 +207,10 @@ class AppSettings:
             self.casino_bumper_frequency = "selected_hands"
         if self.casino_bumper_style not in {"night_city_recaps", "classic"}:
             self.casino_bumper_style = "night_city_recaps"
+        self.casino_program_starting_bankroll = max(1, int(self.casino_program_starting_bankroll))
+        self.casino_program_unit = max(1, int(self.casino_program_unit))
+        if not isinstance(self.casino_program_blocks, list) or not self.casino_program_blocks:
+            self.casino_program_blocks = default_casino_blocks()
 
     @classmethod
     def load(cls, path):
