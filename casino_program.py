@@ -580,9 +580,14 @@ class CasinoProgram:
         """Return the public/role-limited context a casino AI could receive."""
         player_id = str(player_id)
         participant = next((item for item in self.participants_snapshot() if item["id"] == player_id), None)
+        program_block = {
+            key: value
+            for key, value in self.public_block().items()
+            if key not in {"viewer_hook"}
+        }
         context = {
             "active_game": self.current_block().get("active_game", "poker"),
-            "program_block": self.public_block(),
+            "program_block": program_block,
             "round_id": self.round_id,
             "participant": participant,
             "fictional_bankroll": self.fictional_bankrolls.get(player_id),

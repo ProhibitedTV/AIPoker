@@ -793,6 +793,22 @@ def _lower_third_modules(
                 "tone": "pink",
             }
         )
+    elif any(player.get("all_in") and not player.get("folded") for player in players) or str(stage).lower() == "showdown":
+        modules.append(
+            {
+                "id": "equity",
+                "label": "RACE",
+                "title": "Chance to win",
+                "value": "PENDING",
+                "detail": "Analysis is catching up",
+                "rows": [
+                    {"left": player.get("name", "AI"), "right": "live"}
+                    for player in players
+                    if player.get("active") and not player.get("folded")
+                ][:3],
+                "tone": "pink",
+            }
+        )
     modules.append(
         {
             "id": "hand",
