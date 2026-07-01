@@ -24,6 +24,8 @@ REQUIRED_OVERLAY_MARKERS = (
     "venueThemeOn",
     "card.holo-card",
     "showrunner-focus",
+    "playVoiceClip",
+    "speakTableTalkCue",
     "non-reader-strip",
     "equity-race",
     "recap-card",

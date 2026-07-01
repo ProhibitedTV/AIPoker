@@ -24,6 +24,8 @@ Expected local URLs:
 
 Use a Browser Source at 1920×1080 pointed at `http://127.0.0.1:8765/overlay`. The plain URL is the production view: lower-third on, simplified HUD, and side desk hidden. Use `?desk=1`, `?hud=full`, or `?lowerthird=0` only for troubleshooting captures. Enable **Control audio via OBS** to capture browser-source table cues and the `music/` casino bed. Use `?audio=0` or `?music=0` only if you are separately capturing the desktop app audio and need to prevent doubling.
 
+Generated host/player voices also flow through the OBS Browser Source as `/voice/*.wav` clips. Keep desktop audio off unless intentionally testing local playback. RVC voice conversion is optional and operator-supplied: place consented/original models under `voices/rvc/` and configure `rvc_enabled`, `rvc_command`, and `rvc_models_path`; if RVC or the base TTS backend is unavailable, the overlay falls back to captions/browser speech without stopping the table.
+
 ## 24/7 variety rotation
 
 The app rotates through safe table blocks by default so the stream does not sit in one texture forever. The default playlist includes standard sit-and-go, turbo sit-and-go, deep-stack cash, ante splash cash, and high-roller cash spotlight blocks. Cash blocks can reset stacks and change blinds/antes at hand boundaries; tournament blocks wait for the current sit-and-go to complete before changing format. The active block is visible in `/state.variety`, OBS browser-source labels, and `/stream-info`.

@@ -1526,6 +1526,7 @@ class PokerGame:
                             "persona": player.profile.persona,
                             "model": player.profile.model,
                             "color": player.profile.color,
+                            "voice": player.profile.voice,
                             "avatar": player.profile.avatar,
                             "sigil": player.profile.sigil,
                             "tagline": player.profile.tagline,

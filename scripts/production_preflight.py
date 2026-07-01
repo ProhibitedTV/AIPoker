@@ -39,6 +39,8 @@ REQUIRED_OVERLAY_MARKERS = (
     "card.holo-card",
     'id="showrunnerFocus"',
     'id="voiceFlash"',
+    "playVoiceClip",
+    "speakTableTalkCue",
     'id="healthPill"',
     "OLLAMA LIVE",
     "MODEL FALLBACK",
@@ -96,6 +98,7 @@ def check_paths(settings):
         ("checkpoint.path", settings.checkpoint_path),
         ("hand.history.path", settings.hand_history_path),
         ("audio.cache.path", settings.audio_cache_path),
+        ("voice.cache.path", settings.voice_clip_cache_path),
         ("instance.lock.path", settings.single_instance_lock_path),
     ):
         try:

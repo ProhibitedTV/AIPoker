@@ -76,6 +76,8 @@ Add `--strict-ollama` when you want launch to fail unless local Ollama models an
 
 Stream-safe WAV tracks placed in `music/` play as a shuffled casino music bed in the OBS browser source. Short samples in `sound_effects/` add tactile broadcast Foley; `card_flip.mp3` is served to the OBS browser source for card/deck reveals, and a matching `card_flip.wav` can override generated desktop card Foley if local desktop audio is explicitly enabled. Use `music_enabled`, `music_path`, `music_volume`, `music_shuffle`, and `sound_effects_path` in config, or launch with `--no-music`, `--music-path`, and `--music-volume`, to tune the playlist without changing the Foley or voice mix.
 
+Optional generated voice clips are served through the OBS browser source too. The app can create short host and AI table-talk WAVs with a local base TTS backend, then optionally pass those WAVs through an operator-supplied RVC command template for Atlas/Vega/Nova/Echo-style voices. RVC is not bundled and is not required for the stream to run; configure `rvc_enabled`, `rvc_command`, and `rvc_models_path` only after you have a local RVC install and consented/original voice models such as `voices/rvc/atlas_rvc.pth`. Use `--no-voice-clips` to return to captions/browser speech only, or `--rvc-enabled --rvc-command ...` to bridge a local converter. Generated clips are cached under `voice_clip_cache_path` and played by `/overlay` as `/voice/*.wav`, so OBS **Control audio via OBS** remains the intended capture path.
+
 Preview and inspect the real broadcast without Ollama:
 
 ```bash

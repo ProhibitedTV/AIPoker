@@ -11,6 +11,7 @@ def test_default_profiles_include_broadcast_avatar_identity():
     assert profiles[0]["id"] == "atlas"
     assert profiles[0]["avatar"] == "chrome_oracle"
     assert profiles[0]["sigil"] == "AX"
+    assert profiles[0]["voice"] == "atlas_rvc"
     assert profiles[0]["tagline"]
     assert all({"avatar", "sigil", "tagline"} <= set(profile) for profile in profiles)
 
@@ -122,6 +123,32 @@ def test_overlay_engagement_cli_overrides(tmp_path):
     assert not settings.overlay_engagement_enabled
     assert settings.overlay_follow_message == "Follow the AI table"
     assert settings.overlay_chat_prompt == "Pick the next winner"
+
+
+def test_voice_clip_and_rvc_cli_overrides(tmp_path):
+    settings = build_settings(
+        parse_args(
+            [
+                "--config", str(tmp_path / "missing.json"),
+                "--no-voice-clips",
+                "--voice-tts-backend", "none",
+                "--voice-cache-path", str(tmp_path / "voice-cache"),
+                "--rvc-enabled",
+                "--rvc-command", "python", "infer.py", "{input}", "{output}",
+                "--rvc-models-path", str(tmp_path / "rvc"),
+                "--rvc-timeout", "11",
+                "--rvc-pitch", "2",
+            ]
+        )
+    )
+    assert not settings.voice_clips_enabled
+    assert settings.voice_tts_backend == "none"
+    assert settings.voice_clip_cache_path == str(tmp_path / "voice-cache")
+    assert settings.rvc_enabled
+    assert settings.rvc_command == ["python", "infer.py", "{input}", "{output}"]
+    assert settings.rvc_models_path == str(tmp_path / "rvc")
+    assert settings.rvc_timeout_seconds == 11
+    assert settings.rvc_pitch == 2
 
 
 def test_variety_rotation_cli_overrides(tmp_path):

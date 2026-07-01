@@ -16,7 +16,7 @@ def default_profiles():
             "persona": "disciplined tight-aggressive analyst",
             "model": "auto",
             "color": "#e7bd55",
-            "voice": "",
+            "voice": "atlas_rvc",
             "temperature": 0.18,
             "avatar": "chrome_oracle",
             "sigil": "AX",
@@ -28,7 +28,7 @@ def default_profiles():
             "persona": "fearless loose-aggressive pressure player",
             "model": "auto",
             "color": "#ef6b67",
-            "voice": "",
+            "voice": "vega_rvc",
             "temperature": 0.38,
             "avatar": "redline_jackal",
             "sigil": "VX",
@@ -40,7 +40,7 @@ def default_profiles():
             "persona": "balanced adaptive opponent reader",
             "model": "auto",
             "color": "#61b7ff",
-            "voice": "",
+            "voice": "nova_rvc",
             "temperature": 0.27,
             "avatar": "blue_nebula",
             "sigil": "NX",
@@ -52,7 +52,7 @@ def default_profiles():
             "persona": "patient deceptive trap-oriented player",
             "model": "auto",
             "color": "#a98aff",
-            "voice": "",
+            "voice": "echo_rvc",
             "temperature": 0.3,
             "avatar": "violet_phantom",
             "sigil": "EX",
@@ -64,7 +64,7 @@ def default_profiles():
             "persona": "creative position-aware player",
             "model": "auto",
             "color": "#5ed39a",
-            "voice": "",
+            "voice": "river_rvc",
             "temperature": 0.32,
             "avatar": "green_syndicate",
             "sigil": "RV",
@@ -76,7 +76,7 @@ def default_profiles():
             "persona": "calm exploitative counter-puncher",
             "model": "auto",
             "color": "#d6d8dc",
-            "voice": "",
+            "voice": "onyx_rvc",
             "temperature": 0.22,
             "avatar": "silver_warden",
             "sigil": "OX",
@@ -169,6 +169,15 @@ class AppSettings:
     tts_volume: float = 0.8
     tts_rate: int = 175
     tts_voice: str = ""
+    voice_clips_enabled: bool = True
+    voice_clip_cache_path: str = "data/voice_cache"
+    voice_clip_max_cache: int = 160
+    voice_tts_backend: str = "pyttsx3"
+    rvc_enabled: bool = False
+    rvc_command: list = field(default_factory=list)
+    rvc_models_path: str = "voices/rvc"
+    rvc_timeout_seconds: int = 45
+    rvc_pitch: int = 0
     audio_enabled: bool = False
     audio_volume: float = 0.45
     ambience_enabled: bool = True
@@ -203,6 +212,12 @@ class AppSettings:
             self.overlay_night_city_intensity = "high"
         self.overlay_follow_message = str(self.overlay_follow_message or "Follow for 24/7 autonomous AI poker.")[:96]
         self.overlay_chat_prompt = str(self.overlay_chat_prompt or "Call out the next winner in chat.")[:96]
+        self.voice_clip_max_cache = max(8, int(self.voice_clip_max_cache))
+        self.voice_tts_backend = str(self.voice_tts_backend or "pyttsx3").strip().lower()
+        if not isinstance(self.rvc_command, list):
+            self.rvc_command = []
+        self.rvc_timeout_seconds = max(5, int(self.rvc_timeout_seconds or 45))
+        self.rvc_pitch = int(self.rvc_pitch or 0)
         self.casino_bumper_duration_ms = max(4000, min(8000, int(self.casino_bumper_duration_ms)))
         if self.casino_bumper_frequency not in {"selected_hands", "every_hand", "off"}:
             self.casino_bumper_frequency = "selected_hands"
