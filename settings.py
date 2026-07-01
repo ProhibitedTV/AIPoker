@@ -149,6 +149,7 @@ class AppSettings:
     overlay_voice_cooldown_ms: int = 9000
     overlay_non_reader_mode: bool = True
     overlay_night_city_intensity: str = "high"
+    overlay_venue_theme_enabled: bool = True
     overlay_recap_duration_ms: int = 7500
     overlay_moment_duration_ms: int = 6200
     overlay_visual_debug: bool = False

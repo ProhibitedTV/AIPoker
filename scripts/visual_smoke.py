@@ -20,6 +20,8 @@ REQUIRED_OVERLAY_MARKERS = (
     "lt-module",
     "hud-minimal",
     "body.lower-third-on .ticker.lower-third",
+    "venue-chip",
+    "venueThemeOn",
     "card.holo-card",
     "showrunner-focus",
     "non-reader-strip",

@@ -190,6 +190,7 @@ def build_presentation_snapshot(
         lounge=lounge,
         casino=casino,
     )
+    venue = _venue_payload(lounge=lounge, casino=casino, variety=variety, hand_number=hand_number)
     return {
         "schema_version": PRESENTATION_SCHEMA_VERSION,
         "mode": mode,
@@ -210,6 +211,7 @@ def build_presentation_snapshot(
         "non_reader_labels": showrunner["non_reader_labels"],
         "audience_hook": showrunner["audience_hook"],
         "lower_third": lower_third,
+        "venue": venue,
     }
 
 
@@ -241,6 +243,74 @@ def _latest_winner_line(commentary):
         if re.search(r"\b(wins?|share|awarded)\b", str(line), re.IGNORECASE):
             return str(line)
     return ""
+
+
+def _venue_payload(*, lounge, casino, variety, hand_number):
+    """Return compact public venue flavor for the OBS theme layer.
+
+    This is intentionally presentation-only: it is derived from the already
+    public lounge/program state and never feeds decisions, odds, or hidden
+    information back into the poker engine or AI prompts.
+    """
+
+    lounge = lounge or {}
+    casino = casino or {}
+    variety = variety or {}
+    venue = lounge.get("venue") if isinstance(lounge.get("venue"), dict) else {}
+    enabled = lounge.get("enabled", True) is not False
+    name = _compact_venue_text(venue.get("name") or "Rainline Room", "Rainline Room", 32)
+    district = _compact_venue_text(venue.get("district") or "Simulation District", "Simulation District", 36)
+    zone = _compact_venue_text(lounge.get("venue_zone") or venue.get("booth") or "back-alley holo table", "back-alley holo table", 42)
+    lighting = _compact_venue_text(venue.get("lighting") or "cyan rain and magenta glass", "cyan rain and magenta glass", 44)
+    weather = _compact_venue_text(venue.get("weather") or "synthetic rain", "synthetic rain", 32)
+    mood = _compact_venue_text(lounge.get("table_mood") or "Neon hour", "Neon hour", 32)
+    service_bot = _compact_venue_text(lounge.get("service_bot") or "Chrome Valet", "Chrome Valet", 28)
+    pressure = max(0, min(100, int(lounge.get("pressure_index", 0) or 0)))
+    active_game = str(casino.get("active_game") or "poker").replace("_", " ").upper()
+    block = casino.get("program_block") if isinstance(casino.get("program_block"), dict) else {}
+    room = _compact_venue_text(block.get("title") or variety.get("title") or active_game.title(), "Main Poker Table", 42)
+    header_label = f"{name} // {district}"
+    status_chip = f"{mood} // pressure {pressure}%"
+    table_label = f"DEALER // {zone}"
+    footer_line = f"{district} // {lighting} // {weather}"
+    return {
+        "schema_version": 1,
+        "enabled": bool(enabled),
+        "name": name,
+        "district": district,
+        "zone": zone,
+        "lighting": lighting,
+        "weather": weather,
+        "mood": mood,
+        "service_bot": service_bot,
+        "pressure": pressure,
+        "room": room,
+        "active_game": active_game,
+        "header_label": header_label,
+        "status_chip": status_chip,
+        "table_label": table_label,
+        "footer_line": footer_line,
+        "signs": {
+            "left": "24/7 AI DEN",
+            "right": f"{service_bot} ONLINE",
+            "lower": district,
+        },
+        "atmosphere": _compact_venue_text(lounge.get("atmosphere_line") or f"{service_bot} keeps {zone} under {lighting}.", "", 120),
+        "hand": int(hand_number or 0),
+        "safe_label": "simulation-only venue skin",
+    }
+
+
+def _compact_venue_text(value, fallback, limit):
+    text = re.sub(r"\s+", " ", str(value or "").strip())
+    if not text:
+        text = fallback
+    for forbidden in ("deposit", "cash out", "spin again"):
+        text = re.sub(forbidden, "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\s+", " ", text).strip(" -Â·")
+    if not text:
+        text = fallback
+    return text[: max(1, int(limit))]
 
 
 def _recap_payload(players, winners, tournament, commentary, action_history):
