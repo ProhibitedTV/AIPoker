@@ -163,9 +163,6 @@ cython_debug/
 
 # AI Poker local runtime state
 config.json
-data/leaderboard.json
-data/audio_cache/
-data/checkpoint.json
-data/hand_history.jsonl*
+data/
 ui-preview.png
 artifacts/
