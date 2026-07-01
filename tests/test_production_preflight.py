@@ -26,6 +26,7 @@ def test_preflight_settings_and_paths_are_production_oriented(tmp_path):
 
     assert by_name["overlay.enabled"] == "pass"
     assert by_name["simulation.disclaimer"] == "pass"
+    assert by_name["casino.program"] == "pass"
     assert by_name["single.instance"] == "pass"
     assert by_name["stats.path"] == "pass"
     assert by_name["checkpoint.path"] == "pass"
@@ -61,5 +62,6 @@ def test_live_preflight_checks_overlay_endpoints():
     by_name = statuses(checks)
     assert by_name["live.health"] == "pass"
     assert by_name["live.state_schema"] == "pass"
+    assert by_name["live.casino_state"] == "pass"
     assert by_name["live.overlay_html"] == "pass"
     assert by_name["live.no_wager_cta"] == "pass"

@@ -11,6 +11,7 @@ from threading import Condition, RLock
 
 from analysis import EquityCalculator
 from broadcast_context import build_broadcast_context
+from casino_program import CasinoProgram
 from deck import Deck
 from hand_evaluator import evaluate_hand
 from lounge import adjusted_temperature, build_lounge_snapshot, player_lounge_for
@@ -81,6 +82,10 @@ class PokerGame:
         casino_bumper_responsible_label=True,
         casino_bumper_frequency="selected_hands",
         casino_bumper_style="night_city_recaps",
+        casino_program_enabled=True,
+        casino_program_starting_bankroll=5000,
+        casino_program_unit=100,
+        casino_program_blocks=None,
         engagement_enabled=True,
         engagement_follow_message="Follow for 24/7 autonomous AI poker.",
         engagement_chat_prompt="Call out the next winner in chat.",
@@ -187,6 +192,14 @@ class PokerGame:
         self.casino_bumper_responsible_label = bool(casino_bumper_responsible_label)
         self.casino_bumper_frequency = str(casino_bumper_frequency or "selected_hands")
         self.casino_bumper_style = str(casino_bumper_style or "night_city_recaps")
+        self.casino_program = CasinoProgram(
+            self.players,
+            rng_seed=self.rng_seed,
+            enabled=casino_program_enabled,
+            starting_bankroll=casino_program_starting_bankroll,
+            unit=casino_program_unit,
+            blocks=casino_program_blocks,
+        )
         self.engagement_enabled = bool(engagement_enabled)
         self.engagement_follow_message = str(engagement_follow_message or "Follow for 24/7 autonomous AI poker.")[:96]
         self.engagement_chat_prompt = str(engagement_chat_prompt or "Call out the next winner in chat.")[:96]
@@ -217,6 +230,7 @@ class PokerGame:
             "overlay": "unknown",
             "persistence": "ready" if self.history_path or self.checkpoint_path else "disabled",
             "checkpoint": "standby" if self.checkpoint_path else "disabled",
+            "casino_program": "ready" if self.casino_program.enabled else "disabled",
         }
         self.model_activity = {
             "schema_version": 1,
@@ -282,12 +296,12 @@ class PokerGame:
                 **details,
             }
             self._events.append(event)
-            if self.hand_in_progress or event_type in {"hand_started", "winner", "pot_awarded"}:
+            if self.hand_in_progress or event_type in {"hand_started", "winner", "pot_awarded"} or event_type.startswith("casino_"):
                 self._hand_events.append(event)
             self._event_condition.notify_all()
         if message:
             self.log.append(message)
-        if event_type in {"action", "community", "winner", "table_talk"} and message:
+        if event_type in {"action", "community", "winner", "table_talk", "casino_host_line", "casino_outcome"} and message:
             self.commentary.append(message)
         for listener in tuple(self._listeners):
             try:
@@ -1216,6 +1230,8 @@ class PokerGame:
 
     def _finish_hand(self, winner_names, payouts=None):
         self.hand_in_progress = False
+        if self.casino_program:
+            self.casino_program.advance(self.hand_number, emit=self._emit)
         participants = [player for player in self.players if player.hand]
         for player in participants:
             player.total_rounds += 1
@@ -1229,6 +1245,7 @@ class PokerGame:
             "burned_cards": [self.card_to_dict(card) for card in self.deck.burned],
             "rng_seed": self.rng_seed,
             "variety": self.variety_snapshot(),
+            "casino": self.casino_program.snapshot() if self.casino_program else {},
         }
         if self.metrics_store:
             self.metrics_store.record_hand(self.players, winner_names, self._opening_chips, summary=summary)
@@ -1276,6 +1293,7 @@ class PokerGame:
                 "segment_started_hand": self._variety_segment_started_hand,
             },
             "players": [{"id": player.id, "chips": player.chips, "eliminated": player.eliminated} for player in self.players],
+            "casino": self.casino_program.snapshot() if self.casino_program else {},
         }
         try:
             self.checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1318,6 +1336,32 @@ class PokerGame:
             self.tournament_complete = bool(document.get("tournament_complete", False))
             self.tournament_winner = document.get("tournament_winner")
             self.eliminations = list(document.get("eliminations", []))
+            casino = document.get("casino") if isinstance(document.get("casino"), dict) else {}
+            if self.casino_program and casino:
+                block = casino.get("program_block") if isinstance(casino.get("program_block"), dict) else {}
+                block_id = block.get("id")
+                if block_id:
+                    match = next(
+                        (
+                            index
+                            for index, segment in enumerate(self.casino_program.blocks)
+                            if segment.get("id") == block_id
+                        ),
+                        None,
+                    )
+                    if match is not None:
+                        self.casino_program.block_index = match
+                self.casino_program.block_round = int(block.get("round_in_block", 0) or 0)
+                self.casino_program.round_id = int(casino.get("round_id", 0) or 0)
+                bankrolls = casino.get("fictional_bankrolls")
+                if isinstance(bankrolls, dict):
+                    self.casino_program.fictional_bankrolls.update(
+                        {str(key): int(value) for key, value in bankrolls.items()}
+                    )
+                if isinstance(casino.get("outcome"), dict):
+                    self.casino_program.outcome = casino.get("outcome")
+                if isinstance(casino.get("spectacle_cue"), dict):
+                    self.casino_program.spectacle_cue = casino.get("spectacle_cue")
             if self.variety_rotation_enabled:
                 restored_index = int(variety.get("segment_index", self.current_variety_index) or 0)
                 self.current_variety_index = max(0, min(len(self.variety_segments) - 1, restored_index))
@@ -1362,6 +1406,7 @@ class PokerGame:
                 "audio": "ready" if audio_enabled else "muted",
                 "persistence": persistence,
                 "checkpoint": checkpoint,
+                "casino_program": self.service_health.get("casino_program", "unknown"),
                 "decision_source": self.model_activity.get("source", "pending"),
             },
         }
@@ -1532,6 +1577,7 @@ class PokerGame:
                 "eliminations": list(self.eliminations),
             } if self.mode == "tournament" else None
             variety = self.variety_snapshot()
+            casino_state = self.casino_program.snapshot() if self.casino_program else {}
             broadcast_context = build_broadcast_context(
                 metrics=leaderboard,
                 players=players,
@@ -1565,6 +1611,7 @@ class PokerGame:
                 showrunner_enabled=self.showrunner_enabled,
                 voice_cues_enabled=self.voice_cues_enabled,
                 lounge=self.lounge_state,
+                casino=casino_state,
             )
             return {
                 "schema_version": 2,
@@ -1591,6 +1638,7 @@ class PokerGame:
                 "personality_arcs": broadcast_context["personality_arcs"],
                 "presentation": presentation,
                 "lounge": dict(self.lounge_state),
+                "casino": casino_state,
                 "analysis": {"pending": analysis_pending, "method": "exact-postflop/bounded-monte-carlo-preflop"},
                 "tournament": tournament_info,
                 "services": dict(self.service_health),

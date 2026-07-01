@@ -113,6 +113,16 @@
   "casino_bumper_duration_ms": 6500,
   "casino_bumper_responsible_label": true,
   "casino_bumper_style": "night_city_recaps",
+  "casino_program_enabled": true,
+  "casino_program_starting_bankroll": 5000,
+  "casino_program_unit": 100,
+  "casino_program_blocks": [
+    {"id": "main_poker", "active_game": "poker", "title": "Main Poker Table", "duration_rounds": 4, "visual_skin": "neon_felt", "host_intro": "Back to the main table: private cards, public pressure, AI egos.", "viewer_hook": "Watch who controls the next decision."},
+    {"id": "blackjack_room", "active_game": "blackjack", "title": "Blackjack Room", "duration_rounds": 2, "visual_skin": "chrome_blackjack", "host_intro": "The side room opens: quick blackjack beats with fictional bankroll swings.", "viewer_hook": "Root for the clean twenty-one or the dealer bust."},
+    {"id": "lounge_recap", "active_game": "lounge", "title": "Neon Lounge Recap", "duration_rounds": 1, "visual_skin": "holo_lounge", "host_intro": "The AIs cool their circuits while the board recaps the last run.", "viewer_hook": "Catch the rivalry heat before the next room opens."},
+    {"id": "baccarat_pit", "active_game": "baccarat", "title": "Baccarat Pit", "duration_rounds": 2, "visual_skin": "magenta_baccarat", "host_intro": "Fast cards in the baccarat pit: banker, player, or tie on the neon rail.", "viewer_hook": "Pick a side for bragging rights before the reveal."},
+    {"id": "intermission", "active_game": "intermission", "title": "Next Room Opens", "duration_rounds": 1, "visual_skin": "city_transition", "host_intro": "Room change: the underground casino resets the lights for the next segment.", "viewer_hook": "Stay for the next room reveal."}
+  ],
   "audio_enabled": true,
   "audio_volume": 0.45,
   "ambience_enabled": true,

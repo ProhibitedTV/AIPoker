@@ -32,6 +32,7 @@ def build_presentation_snapshot(
     showrunner_enabled=True,
     voice_cues_enabled=True,
     lounge=None,
+    casino=None,
 ):
     """Return non-authoritative visual direction for the stream overlay.
 
@@ -52,6 +53,7 @@ def build_presentation_snapshot(
     program = program or {}
     variety = variety or {}
     lounge = lounge or {}
+    casino = casino or {}
 
     actor = next((player for player in players if player.get("next_to_act")), None)
     winners = _winner_players(players)
@@ -166,6 +168,28 @@ def build_presentation_snapshot(
         lounge=lounge,
         hand_number=hand_number,
     )
+    lower_third = _lower_third_payload(
+        mode=mode,
+        headline=headline,
+        explainer=explainer,
+        players=players,
+        actor=actor,
+        winners=winners,
+        all_ins=all_ins,
+        chip_leader=chip_leader,
+        stage=stage,
+        pot=pot,
+        big_blind=big_blind,
+        tournament=tournament,
+        action_history=action_history,
+        commentary=commentary,
+        recap=recap,
+        engagement=engagement,
+        program=program,
+        variety=variety,
+        lounge=lounge,
+        casino=casino,
+    )
     return {
         "schema_version": PRESENTATION_SCHEMA_VERSION,
         "mode": mode,
@@ -185,6 +209,7 @@ def build_presentation_snapshot(
         "voice_cue": showrunner["voice_cue"],
         "non_reader_labels": showrunner["non_reader_labels"],
         "audience_hook": showrunner["audience_hook"],
+        "lower_third": lower_third,
     }
 
 
@@ -620,6 +645,284 @@ def _showrunner_payload(
         "non_reader_labels": {"enabled": True, "items": labels},
         "audience_hook": engagement.get("prompt", ""),
     }
+
+
+def _lower_third_payload(
+    *,
+    mode,
+    headline,
+    explainer,
+    players,
+    actor,
+    winners,
+    all_ins,
+    chip_leader,
+    stage,
+    pot,
+    big_blind,
+    tournament,
+    action_history,
+    commentary,
+    recap,
+    engagement,
+    program,
+    variety,
+    lounge,
+    casino,
+):
+    casino = casino or {}
+    casino_game = str(casino.get("active_game") or "poker")
+    casino_block = casino.get("program_block") if isinstance(casino.get("program_block"), dict) else {}
+    casino_cue = casino.get("spectacle_cue") if isinstance(casino.get("spectacle_cue"), dict) else {}
+    display_mode = "casino_room" if casino.get("enabled") and casino_game != "poker" else ("winner" if winners or tournament.get("complete") else mode)
+    kicker = {
+        "table": "LIVE TABLE",
+        "decision": "DECISION",
+        "big_pot": "BIG POT",
+        "all_in": "ALL-IN PRESSURE",
+        "showdown": "SHOWDOWN",
+        "recap": "HAND RECAP",
+        "winner": "WINNER",
+        "casino_room": "NEXT ROOM",
+    }.get(display_mode, "LIVE TABLE")
+    if display_mode == "casino_room":
+        room = casino_block.get("title") or casino_game.replace("_", " ").title()
+        headline = casino_cue.get("headline") or room
+        explainer = casino_cue.get("caption") or casino_block.get("viewer_hook") or "AI-only side-room beat with fictional bankrolls."
+    elif display_mode == "winner" and recap.get("winners"):
+        names = " + ".join(item.get("name", "Winner") for item in recap.get("winners", []))
+        headline = f"{names} wins the hand" if len(recap.get("winners", [])) == 1 else f"{names} split the pot"
+        explainer = recap.get("detail") or explainer
+
+    modules = _lower_third_modules(
+        players=players,
+        actor=actor,
+        chip_leader=chip_leader,
+        stage=stage,
+        pot=pot,
+        big_blind=big_blind,
+        tournament=tournament,
+        recap=recap,
+        engagement=engagement,
+        program=program,
+        variety=variety,
+        lounge=lounge,
+        casino=casino,
+    )
+    priority = {
+        "winner": 95,
+        "casino_room": 86,
+        "all_in": 88,
+        "showdown": 76,
+        "big_pot": 72,
+        "decision": 64,
+        "recap": 58,
+    }.get(display_mode, 35)
+    active_module = "casino" if display_mode == "casino_room" else "winner" if display_mode == "winner" else "decision" if actor else "equity" if all_ins or display_mode == "showdown" else "pot"
+    if not any(module.get("id") == active_module for module in modules):
+        active_module = modules[0]["id"] if modules else ""
+    return {
+        "schema_version": 1,
+        "mode": display_mode,
+        "kicker": kicker,
+        "headline": _safe_engagement_text(headline, "Live table", 96),
+        "subhead": _safe_engagement_text(explainer, "The next key beat will appear here.", 150),
+        "modules": modules,
+        "active_module": active_module,
+        "ticker_items": _lower_third_ticker_items(players, action_history, commentary),
+        "priority": priority,
+        "duration_ms": 8500 if priority < 80 else 6800,
+    }
+
+
+def _lower_third_modules(
+    *,
+    players,
+    actor,
+    chip_leader,
+    stage,
+    pot,
+    big_blind,
+    tournament,
+    recap,
+    engagement,
+    program,
+    variety,
+    lounge,
+    casino,
+):
+    bb = max(1, int(big_blind or 1))
+    modules = [
+        {
+            "id": "pot",
+            "label": "POT",
+            "title": "Total pot",
+            "value": f"{int(pot or 0):,}",
+            "detail": f"{int((pot or 0) / bb)} big blinds" if pot else "Pot building",
+            "tone": "gold",
+        }
+    ]
+    if actor:
+        call = next((entry for entry in (actor.get("legal_actions") or []) if entry.get("action") == "call"), None)
+        options = ", ".join(str(entry.get("action", "")).replace("_", " ") for entry in actor.get("legal_actions", []) if entry.get("action"))
+        modules.insert(
+            0,
+            {
+                "id": "decision",
+                "label": "TO ACT",
+                "title": actor.get("name", "Acting player"),
+                "value": f"{int(call.get('amount', 0) or 0):,}" if call else "CHECK",
+                "detail": f"Options: {options or 'waiting'}",
+                "tone": "cyan",
+            },
+        )
+    equity_rows = [
+        {"left": player.get("name", "AI"), "right": f"{float(player.get('equity') or 0):.0f}%"}
+        for player in sorted(players, key=lambda item: float(item.get("equity") or -1), reverse=True)
+        if player.get("equity") is not None and not player.get("folded")
+    ][:3]
+    if equity_rows:
+        modules.append(
+            {
+                "id": "equity",
+                "label": "RACE",
+                "title": "Chance to win",
+                "value": equity_rows[0]["right"],
+                "detail": equity_rows[0]["left"],
+                "rows": equity_rows,
+                "tone": "pink",
+            }
+        )
+    modules.append(
+        {
+            "id": "hand",
+            "label": "HAND",
+            "title": "Current street",
+            "value": str(stage or "Waiting").upper(),
+            "detail": recap.get("hand") or "Best five cards win each eligible pot.",
+            "tone": "blue",
+        }
+    )
+    standings = [
+        {"left": f"#{index + 1} {player.get('name', 'AI')}", "right": f"{int(player.get('chips', 0)):,}"}
+        for index, player in enumerate(
+            sorted(
+                [player for player in players if not player.get("eliminated")],
+                key=lambda item: int(item.get("chips", 0)),
+                reverse=True,
+            )[:3]
+        )
+    ]
+    if standings:
+        modules.append(
+            {
+                "id": "standings",
+                "label": "STACKS",
+                "title": "Chip leader",
+                "value": (chip_leader or {}).get("name", standings[0]["left"]),
+                "detail": f"{int((chip_leader or {}).get('chips', 0)):,} chips" if chip_leader else "",
+                "rows": standings,
+                "tone": "gold",
+            }
+        )
+    model_counts = {
+        "ollama": sum(int((player.get("model_health") or {}).get("ollama_decisions", 0) or 0) for player in players),
+        "fallback": sum(int((player.get("model_health") or {}).get("fallback_decisions", 0) or 0) for player in players),
+    }
+    modules.append(
+        {
+            "id": "models",
+            "label": "AI",
+            "title": "Model health",
+            "value": "OLLAMA" if model_counts["ollama"] else "WARMING",
+            "detail": f"{model_counts['ollama']} local · {model_counts['fallback']} fallback decisions",
+            "tone": "cyan",
+        }
+    )
+    if casino.get("enabled"):
+        block = casino.get("program_block") if isinstance(casino.get("program_block"), dict) else {}
+        modules.append(
+            {
+                "id": "casino",
+                "label": "ROOM",
+                "title": block.get("title") or "Night City room",
+                "value": str(casino.get("active_game") or "poker").replace("_", " ").upper(),
+                "detail": block.get("viewer_hook") or "AI-only programming block.",
+                "tone": "pink",
+            }
+        )
+    if lounge.get("enabled"):
+        modules.append(
+            {
+                "id": "lounge",
+                "label": "LOUNGE",
+                "title": lounge.get("scene_name") or "AI lounge",
+                "value": f"{int(lounge.get('pressure_index', 0) or 0)}%",
+                "detail": lounge.get("atmosphere_line") or lounge.get("table_mood") or "Fictional AI lounge texture.",
+                "tone": "blue",
+            }
+        )
+    if tournament:
+        modules.append(
+            {
+                "id": "level",
+                "label": "LEVEL",
+                "title": "Tournament clock",
+                "value": f"L{tournament.get('level', 1)}",
+                "detail": f"{tournament.get('hands_remaining', 0)} hand(s) until blinds move.",
+                "tone": "gold",
+            }
+        )
+    else:
+        modules.append(
+            {
+                "id": "program",
+                "label": "FORMAT",
+                "title": variety.get("title") or program.get("segment") or "Cash game",
+                "value": str(variety.get("tempo") or "LIVE").upper(),
+                "detail": variety.get("viewer_explainer") or program.get("detail") or "Current broadcast segment.",
+                "tone": "blue",
+            }
+        )
+    if engagement.get("enabled"):
+        modules.append(
+            {
+                "id": "chat",
+                "label": "CHAT",
+                "title": "Audience prompt",
+                "value": "BRAGGING RIGHTS",
+                "detail": engagement.get("prompt") or "Call out the next winner in chat.",
+                "tone": "cyan",
+            }
+        )
+    return modules[:8]
+
+
+def _lower_third_ticker_items(players, action_history, commentary):
+    items = []
+    for action in list(action_history or [])[-4:]:
+        seat = action.get("seat")
+        player = next((item for item in players if item.get("seat") == seat), None)
+        name = (player or {}).get("name") or f"Seat {seat}"
+        amount = int(action.get("amount", 0) or 0)
+        copy = f"{name} {_plain_action(action.get('action'))}"
+        if amount:
+            copy = f"{copy} {amount:,}"
+        items.append(copy)
+    for line in list(commentary or [])[-2:]:
+        text = _safe_engagement_text(line, "", 110)
+        if text and text not in items:
+            items.append(text)
+    return items[-5:]
+
+
+def _plain_action(action):
+    return {
+        "small_blind": "posts small blind",
+        "big_blind": "posts big blind",
+        "ante": "posts ante",
+        "all_in": "moves all-in",
+    }.get(str(action or ""), str(action or "waits").replace("_", " "))
 
 
 def _viewer_decision_focus(actor):

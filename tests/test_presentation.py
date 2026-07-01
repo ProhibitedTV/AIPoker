@@ -63,6 +63,11 @@ def test_presentation_table_mode_when_no_one_is_acting():
     assert result["non_reader_labels"]["enabled"]
     assert result["audience_hook"]
     assert result["chip_leader"] == "atlas"
+    assert result["lower_third"]["schema_version"] == 1
+    assert result["lower_third"]["mode"] == "table"
+    assert result["lower_third"]["kicker"] == "LIVE TABLE"
+    assert result["lower_third"]["active_module"] == "pot"
+    assert any(module["id"] == "standings" for module in result["lower_third"]["modules"])
     assert result["profile_signals"]["vega"]["risk_appetite"] == 78
     assert result["engagement"]["enabled"]
     assert "Call out the next winner" in result["engagement"]["prompt"]
@@ -80,6 +85,9 @@ def test_presentation_decision_mode_explains_call_price():
     assert "120 chips" in result["explainer"]
     assert "120" in result["viewer_focus"]
     assert result["non_reader_labels"]["items"][0]["label"] == "TO CALL"
+    assert result["lower_third"]["mode"] == "decision"
+    assert result["lower_third"]["active_module"] == "decision"
+    assert result["lower_third"]["modules"][0]["value"] == "120"
     assert "Decision point" in result["voice_cue"]["line"]
     assert "Vega" in result["engagement"]["prompt"]
     assert "call, raise, or fold" in result["engagement"]["prompt"]
@@ -99,6 +107,8 @@ def test_presentation_all_in_mode_beats_big_pot():
     assert result["mode"] == "all_in"
     assert result["beat_type"] == "all_in"
     assert result["spotlight_seat_ids"] == ["atlas"]
+    assert result["lower_third"]["mode"] == "all_in"
+    assert result["lower_third"]["active_module"] == "equity"
 
 
 def test_presentation_showdown_mode_before_award():
@@ -106,6 +116,8 @@ def test_presentation_showdown_mode_before_award():
     assert result["mode"] == "showdown"
     assert result["beat_type"] == "showdown"
     assert "Best five-card" in result["explainer"]
+    assert result["lower_third"]["mode"] == "showdown"
+    assert result["lower_third"]["active_module"] == "equity"
 
 
 def test_presentation_recap_for_fold_win_and_split_pot():
@@ -116,6 +128,8 @@ def test_presentation_recap_for_fold_win_and_split_pot():
     assert result["beat_type"] in {"winner", "intermission"}
     assert result["recap"]["winners"][0]["name"] == "Atlas"
     assert result["recap"]["amount"] == 480
+    assert result["lower_third"]["mode"] == "winner"
+    assert result["lower_third"]["kicker"] == "WINNER"
 
     players[1]["action"] = "Won 480"
     split = snapshot(players, stage="Showdown", pot=0, commentary=["Atlas and Vega share the pots."])
@@ -230,3 +244,25 @@ def test_casino_bumper_hot_streak_chip_leader_and_next_format():
     )
     assert next_format["bumper"]["kind"] == "next_format"
     assert next_format["bumper"]["visual_family"] == "format_marquee"
+
+
+def test_lower_third_casino_room_mode_uses_programming_state():
+    result = snapshot(
+        casino={
+            "enabled": True,
+            "active_game": "blackjack",
+            "program_block": {
+                "title": "Blackjack Room",
+                "viewer_hook": "Root for the clean twenty-one.",
+                "visual_skin": "chrome_blackjack",
+            },
+            "spectacle_cue": {
+                "headline": "Blackjack room opens",
+                "caption": "Dealer shows pressure in the side room.",
+            },
+        }
+    )
+    assert result["lower_third"]["mode"] == "casino_room"
+    assert result["lower_third"]["kicker"] == "NEXT ROOM"
+    assert result["lower_third"]["active_module"] == "casino"
+    assert "Blackjack" in result["lower_third"]["headline"]

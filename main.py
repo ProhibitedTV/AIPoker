@@ -130,6 +130,9 @@ def parse_args(argv=None):
     parser.add_argument("--overlay-follow-message", help="Short follow-channel message for OBS engagement panels")
     parser.add_argument("--overlay-chat-prompt", help="Short chat prompt for OBS engagement panels")
     parser.add_argument("--no-casino-bumpers", action="store_true", help="Disable non-wagering casino-style intermission bumpers")
+    parser.add_argument("--no-casino-program", action="store_true", help="Disable AI-only blackjack/baccarat/lounge programming blocks")
+    parser.add_argument("--casino-bankroll", type=int, help="Starting fictional bankroll for AI-only side-room drama")
+    parser.add_argument("--casino-unit", type=int, help="Fictional unit size for AI-only blackjack/baccarat side rooms")
     parser.add_argument("--mode", choices=("cash", "tournament"))
     parser.add_argument("--players", type=int, choices=range(2, 7), metavar="2-6")
     parser.add_argument("--seed", type=int, help="Deterministic deck seed")
@@ -205,6 +208,12 @@ def build_settings(args):
         settings.overlay_chat_prompt = args.overlay_chat_prompt[:96]
     if args.no_casino_bumpers:
         settings.casino_bumpers_enabled = False
+    if args.no_casino_program:
+        settings.casino_program_enabled = False
+    if args.casino_bankroll is not None:
+        settings.casino_program_starting_bankroll = max(1, int(args.casino_bankroll))
+    if args.casino_unit is not None:
+        settings.casino_program_unit = max(1, int(args.casino_unit))
     if args.mode:
         settings.game_mode = args.mode
     if args.players:
@@ -326,6 +335,10 @@ def main(argv=None):
         casino_bumper_responsible_label=settings.casino_bumper_responsible_label,
         casino_bumper_frequency=settings.casino_bumper_frequency,
         casino_bumper_style=settings.casino_bumper_style,
+        casino_program_enabled=settings.casino_program_enabled,
+        casino_program_starting_bankroll=settings.casino_program_starting_bankroll,
+        casino_program_unit=settings.casino_program_unit,
+        casino_program_blocks=settings.casino_program_blocks,
         engagement_enabled=settings.overlay_engagement_enabled,
         engagement_follow_message=settings.overlay_follow_message,
         engagement_chat_prompt=settings.overlay_chat_prompt,

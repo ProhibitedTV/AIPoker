@@ -22,7 +22,7 @@ Expected local URLs:
 
 ## OBS setup
 
-Use a Browser Source at 1920×1080 pointed at `http://127.0.0.1:8765/overlay`. Enable **Control audio via OBS** to capture browser-source table cues and the `music/` casino bed. Use `?audio=0` or `?music=0` only if you are separately capturing the desktop app audio and need to prevent doubling.
+Use a Browser Source at 1920×1080 pointed at `http://127.0.0.1:8765/overlay`. The plain URL is the production view: lower-third on, simplified HUD, and side desk hidden. Use `?desk=1`, `?hud=full`, or `?lowerthird=0` only for troubleshooting captures. Enable **Control audio via OBS** to capture browser-source table cues and the `music/` casino bed. Use `?audio=0` or `?music=0` only if you are separately capturing the desktop app audio and need to prevent doubling.
 
 ## 24/7 variety rotation
 
@@ -31,6 +31,8 @@ The app rotates through safe table blocks by default so the stream does not sit 
 Use `--no-variety-rotation` or `variety_rotation_enabled: false` to lock one format. Edit `variety_segments` in `config.json` to tune titles, durations, accents, table skins, cash blinds/antes, starting chips, and tournament hands-per-level.
 
 Safe casino-style bumpers may appear between selected hands. They are decorative broadcast intermissions derived from poker results, not playable slot games. Keep `casino_bumper_responsible_label` enabled on public streams so the no-real-money simulation framing remains visible.
+
+The Night City casino programming layer rotates OBS-first channel blocks around the poker table: main table, blackjack room, baccarat pit, lounge recap, high-roller spotlight, rivalry heat, and room-transition intermission. Blackjack and baccarat are AI-only simulations with fictional bankroll deltas, replayable `/events`, and `/state.casino`; viewers can make chat predictions for bragging rights only. Use `--no-casino-program` or `casino_program_enabled: false` if you want a pure poker feed, and check `/stream-info` to see the current public room title.
 
 The bumper variety should always explain the poker on screen. Reel, wheel, card, standings, and marquee treatments are visual metaphors for the previous hand, all-in pressure, chip movement, leader board, hot streak, or next scheduled poker block. If a bumper feels disconnected from the hand, disable bumpers until the presentation data is fixed.
 
