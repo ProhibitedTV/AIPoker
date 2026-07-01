@@ -11,6 +11,7 @@ from game import PokerGame
 from metrics import MetricsStore
 from overlay_server import OverlayServer
 from settings import AppSettings
+from voice_service import VoiceService
 
 
 def write_tiny_wave(path):
@@ -237,6 +238,8 @@ class StreamingFeatureTests(unittest.TestCase):
             self.assertIn("Table talk monitor", html)
             self.assertIn("NARRATION OFF", html)
             self.assertIn("speechSynthesis", html)
+            self.assertIn("playVoiceClip", html)
+            self.assertIn("speakTableTalkCue", html)
             self.assertIn("presentationFor", html)
             self.assertIn("renderDirector", html)
             self.assertIn("renderCasinoBumper", html)
@@ -332,6 +335,46 @@ class StreamingFeatureTests(unittest.TestCase):
                 self.assertTrue(music_head.startswith(b"RIFF"))
                 self.assertEqual(ranged, b"RIFF")
                 self.assertEqual(flip_head, b"ID3")
+            finally:
+                server.close()
+
+    def test_overlay_state_exposes_generated_voice_clips_for_obs_audio(self):
+        with tempfile.TemporaryDirectory() as directory:
+            voice_dir = Path(directory) / "voice"
+
+            def synth(_text, output, _voice_id):
+                write_tiny_wave(output)
+
+            voice_service = VoiceService(enabled=True, cache_dir=voice_dir, synthesizer=synth)
+            game = PokerGame(2, decision_provider=lambda *_: "check")
+            game.players[0].profile = game.players[0].profile.__class__.from_value(
+                {**game.players[0].profile.__dict__, "voice": "atlas_rvc"},
+                0,
+            )
+            game._emit("table_talk", "Atlas: Neon calm at the rail.", player="Atlas", player_id=game.players[0].id)
+            server = OverlayServer(game, port=0, audio_enabled=True, voice_service=voice_service).start()
+            try:
+                state = None
+                deadline = time.time() + 3
+                while time.time() < deadline:
+                    with urlopen(f"http://127.0.0.1:{server.port}/state", timeout=2) as response:
+                        state = json.load(response)
+                    cue = state["presentation"].get("table_talk_voice", {})
+                    if cue.get("audio_status") == "ready":
+                        break
+                    time.sleep(0.05)
+                cue = state["presentation"]["table_talk_voice"]
+                self.assertEqual(cue["speaker"], "Atlas")
+                self.assertEqual(cue["voice_id"], "atlas_rvc")
+                self.assertEqual(cue["audio_status"], "ready")
+                self.assertTrue(cue["audio_url"].startswith("/voice/"))
+                self.assertEqual(state["audio"]["voice_clips"]["schema_version"], 1)
+                with urlopen(f"http://127.0.0.1:{server.port}{cue['audio_url']}", timeout=2) as response:
+                    self.assertTrue(response.read(12).startswith(b"RIFF"))
+                with urlopen(server.url, timeout=2) as response:
+                    html = response.read().decode("utf-8")
+                self.assertIn("playVoiceClip", html)
+                self.assertIn("speakTableTalkCue", html)
             finally:
                 server.close()
 

@@ -58,6 +58,7 @@ python scripts/preview_overlay.py --port 8775 --health-state audio-muted
 - For the simplest OBS setup, enable **Control audio via OBS** on the Browser Source and let `http://127.0.0.1:8765/overlay` carry table cues plus the casino music bed.
 - Headless production runs keep local desktop playback muted by default. If you still hear the source in headphones, set the OBS `AI Poker` source monitoring to **Monitor Off** in Advanced Audio Properties.
 - Use `--desktop-audio` plus `?audio=0`, `?music=0`, or `overlay_audio_enabled: false` only when desktop Foley, casino music, ambience, and voices are captured separately through OBS Application Audio Capture.
+- Generated host/player voice clips, including optional operator-supplied RVC conversions, are also browser-source audio. Keep them on this path to avoid doubled headphone and OBS playback.
 - The default playlist scans `music/` for WAV tracks, shuffles them, and serves them to the browser source; local desktop playback is opt-in.
 - The browser source also scans `sound_effects/` for short Foley samples; `card_flip.mp3` is used for single-card/deck reveal cues when audio is enabled.
 - Use `--no-music` for silent test streams or `--music-volume 0.12` to tuck the bed farther under table action.

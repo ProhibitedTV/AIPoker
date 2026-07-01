@@ -13,6 +13,7 @@ from game import PokerGame
 from metrics import MetricsStore
 from overlay_server import OverlayServer
 from settings import AppSettings
+from voice_service import VoiceService
 
 
 class InstanceLock:
@@ -145,6 +146,14 @@ def parse_args(argv=None):
     parser.add_argument("--ai-lounge-interval-hands", type=int, help="Hands between AI lounge charge changes")
     parser.add_argument("--reduced-motion", action="store_true")
     parser.add_argument("--tts", action="store_true")
+    parser.add_argument("--no-voice-clips", action="store_true", help="Disable generated OBS voice clips and use captions/browser fallback only")
+    parser.add_argument("--voice-tts-backend", choices=("pyttsx3", "none"), help="Local base TTS backend used before optional RVC conversion")
+    parser.add_argument("--voice-cache-path", help="Directory for generated OBS voice clips")
+    parser.add_argument("--rvc-enabled", action="store_true", help="Enable optional RVC conversion command for generated voice clips")
+    parser.add_argument("--rvc-command", nargs="+", help="RVC command template with placeholders like {input}, {output}, {voice}, {model}, {index}, {pitch}")
+    parser.add_argument("--rvc-models-path", help="Directory containing per-profile RVC .pth/.index files")
+    parser.add_argument("--rvc-timeout", type=float, help="Seconds before an RVC conversion command is abandoned")
+    parser.add_argument("--rvc-pitch", type=int, help="Pitch shift passed through to the RVC command template")
     parser.add_argument("--mute", action="store_true", help="Disable generated game sound cues")
     parser.add_argument("--desktop-audio", action="store_true", help="Opt into local desktop audio playback; headless OBS runs keep this off by default")
     parser.add_argument("--no-ambience", action="store_true")
@@ -240,6 +249,22 @@ def build_settings(args):
         settings.reduced_motion = True
     if args.tts:
         settings.tts_enabled = True
+    if args.no_voice_clips:
+        settings.voice_clips_enabled = False
+    if args.voice_tts_backend:
+        settings.voice_tts_backend = args.voice_tts_backend
+    if args.voice_cache_path:
+        settings.voice_clip_cache_path = args.voice_cache_path
+    if args.rvc_enabled:
+        settings.rvc_enabled = True
+    if args.rvc_command:
+        settings.rvc_command = list(args.rvc_command)
+    if args.rvc_models_path:
+        settings.rvc_models_path = args.rvc_models_path
+    if args.rvc_timeout is not None:
+        settings.rvc_timeout_seconds = max(5, int(args.rvc_timeout))
+    if args.rvc_pitch is not None:
+        settings.rvc_pitch = int(args.rvc_pitch)
     if args.mute:
         settings.audio_enabled = False
     if args.no_ambience:
@@ -379,6 +404,24 @@ def main(argv=None):
         music_shuffle=settings.music_shuffle,
         sound_effects_dir=settings.sound_effects_path,
     )
+    voice_service = (
+        VoiceService(
+            enabled=settings.voice_clips_enabled,
+            cache_dir=settings.voice_clip_cache_path,
+            max_cache=settings.voice_clip_max_cache,
+            tts_backend=settings.voice_tts_backend,
+            tts_voice=settings.tts_voice,
+            tts_rate=settings.tts_rate,
+            tts_volume=settings.voice_volume,
+            rvc_enabled=settings.rvc_enabled,
+            rvc_command=settings.rvc_command,
+            rvc_models_path=settings.rvc_models_path,
+            rvc_timeout_seconds=settings.rvc_timeout_seconds,
+            rvc_pitch=settings.rvc_pitch,
+        )
+        if settings.overlay_enabled
+        else None
+    )
     commentary.on_speaking = audio.set_voice_active
     game.audio_state = {
         "enabled": audio.enabled or settings.overlay_audio_enabled,
@@ -393,6 +436,9 @@ def main(argv=None):
         "music_tracks": len(audio.music_tracks),
         "sound_effects": sorted(audio.sound_effects),
         "voice": settings.voice_volume,
+        "voice_clips_enabled": bool(voice_service and voice_service.enabled),
+        "voice_backend": "rvc" if settings.rvc_enabled else settings.voice_tts_backend,
+        "rvc_enabled": settings.rvc_enabled,
     }
     game.subscribe(audio.handle_event)
     overlay = None
@@ -424,6 +470,7 @@ def main(argv=None):
             music_dir=settings.music_path,
             music_enabled=settings.music_enabled,
             sound_effects_dir=settings.sound_effects_path,
+            voice_service=voice_service,
         ).start()
         game.service_health["overlay"] = "online"
         safe_print(f"Streaming overlay: {overlay.url}")
@@ -438,6 +485,8 @@ def main(argv=None):
         game.close()
         if overlay:
             overlay.close()
+        elif voice_service:
+            voice_service.close()
         if instance_lock:
             instance_lock.release()
 

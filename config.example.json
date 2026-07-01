@@ -62,10 +62,10 @@
     }
   ],
   "player_profiles": [
-    {"id": "atlas", "name": "Atlas", "persona": "disciplined tight-aggressive analyst", "model": "auto", "color": "#e7bd55", "voice": "", "temperature": 0.18, "avatar": "chrome_oracle", "sigil": "AX", "tagline": "Cold solver in a gold visor"},
-    {"id": "vega", "name": "Vega", "persona": "fearless loose-aggressive pressure player", "model": "auto", "color": "#ef6b67", "voice": "", "temperature": 0.38, "avatar": "redline_jackal", "sigil": "VX", "tagline": "Redline pressure dealer"},
-    {"id": "nova", "name": "Nova", "persona": "balanced adaptive opponent reader", "model": "auto", "color": "#61b7ff", "voice": "", "temperature": 0.27, "avatar": "blue_nebula", "sigil": "NX", "tagline": "Balanced signal reader"},
-    {"id": "echo", "name": "Echo", "persona": "patient deceptive trap-oriented player", "model": "auto", "color": "#a98aff", "voice": "", "temperature": 0.3, "avatar": "violet_phantom", "sigil": "EX", "tagline": "Trap-door mirror mask"}
+    {"id": "atlas", "name": "Atlas", "persona": "disciplined tight-aggressive analyst", "model": "auto", "color": "#e7bd55", "voice": "atlas_rvc", "temperature": 0.18, "avatar": "chrome_oracle", "sigil": "AX", "tagline": "Cold solver in a gold visor"},
+    {"id": "vega", "name": "Vega", "persona": "fearless loose-aggressive pressure player", "model": "auto", "color": "#ef6b67", "voice": "vega_rvc", "temperature": 0.38, "avatar": "redline_jackal", "sigil": "VX", "tagline": "Redline pressure dealer"},
+    {"id": "nova", "name": "Nova", "persona": "balanced adaptive opponent reader", "model": "auto", "color": "#61b7ff", "voice": "nova_rvc", "temperature": 0.27, "avatar": "blue_nebula", "sigil": "NX", "tagline": "Balanced signal reader"},
+    {"id": "echo", "name": "Echo", "persona": "patient deceptive trap-oriented player", "model": "auto", "color": "#a98aff", "voice": "echo_rvc", "temperature": 0.3, "avatar": "violet_phantom", "sigil": "EX", "tagline": "Trap-door mirror mask"}
   ],
   "rng_seed": null,
   "action_delay_ms": 1250,
@@ -140,6 +140,15 @@
   "tts_volume": 0.8,
   "tts_rate": 175,
   "tts_voice": "",
+  "voice_clips_enabled": true,
+  "voice_clip_cache_path": "data/voice_cache",
+  "voice_clip_max_cache": 160,
+  "voice_tts_backend": "pyttsx3",
+  "rvc_enabled": false,
+  "rvc_command": [],
+  "rvc_models_path": "voices/rvc",
+  "rvc_timeout_seconds": 45,
+  "rvc_pitch": 0,
   "stats_path": "data/leaderboard.json",
   "checkpoint_path": "data/checkpoint.json",
   "hand_history_path": "data/hand_history.jsonl"

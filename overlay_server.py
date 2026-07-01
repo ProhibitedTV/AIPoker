@@ -354,7 +354,7 @@ const card=(c,index=0,fresh=false)=>{const rank=ranks[c.rank]||c.rank,suit=suits
 function avatarMarkup(p){const profile=p.profile||{},avatar=profile.avatar||'neon_mask',sigil=String(profile.sigil||p.name?.slice(0,2)||'AI').toUpperCase().slice(0,4),tagline=profile.tagline||profile.persona||'AI competitor';return `<div class="avatar cyber-avatar" data-avatar="${esc(avatar)}" title="${esc(tagline)}" aria-label="${esc(p.name)} avatar"><span class="avatar-orbit"></span><span class="avatar-face"><i class="avatar-eye"></i><i class="avatar-visor"></i><i class="avatar-node"></i></span><b class="avatar-sigil">${esc(sigil)}</b></div>`}
 function loungeMarkup(p){const l=p.lounge||{};if(!l.enabled)return'';const title=[l.drink,l.service_level,l.visual_tell,l.responsible_label].filter(Boolean).join(' · ');return `<div class="lounge-chip" style="--lounge:${esc(l.neon_color||'#ff58e6')}" title="${esc(title||'Fictional AI lounge modifier')}"><span class="lounge-drink">${esc(l.drink||'Neon tonic')}</span><span class="lounge-mood">${esc(l.service_level||l.mood||'composed')}</span><span class="lounge-meter" style="--charge:${Math.max(0,Math.min(100,Number(l.charge||0)))}"><i></i></span></div>`}
 function enhancePlayerIdentities(playerList){players.querySelectorAll('.player').forEach((card,index)=>{const p=playerList[index]||{},profile=p.profile||{},avatar=card.querySelector('.identity>.avatar');if(avatar)avatar.outerHTML=avatarMarkup(p);const persona=card.querySelector('.name-block>.model');if(persona){persona.classList.add('persona-tag');persona.textContent=profile.tagline||profile.persona||'AI competitor'}const block=card.querySelector('.name-block'),old=card.querySelector('.lounge-chip');if(old)old.remove();if(block){block.insertAdjacentHTML('beforeend',loungeMarkup(p))}})}
-let lastState=null,refreshing=false,boardCount=0,winnerTimer=null,lastPot=-1,lastCommentary='',lastWinnerSignature='',rotationIndex=0,lastRotationAt=0,lowerThirdIndex=0,lastLowerThirdAt=0,lastLowerThirdKey='',lastLowerThirdModuleId='',lastNarrationKey='',lastNarrationAt=0,lastVoiceCueKey='',lastVoiceCueAt=0,lastCasinoCueKey='',voiceFlashTimer=null;
+let lastState=null,refreshing=false,boardCount=0,winnerTimer=null,lastPot=-1,lastCommentary='',lastWinnerSignature='',rotationIndex=0,lastRotationAt=0,lowerThirdIndex=0,lastLowerThirdAt=0,lastLowerThirdKey='',lastLowerThirdModuleId='',lastNarrationKey='',lastNarrationAt=0,lastVoiceCueKey='',lastVoiceCueAt=0,lastCasinoCueKey='',lastTableTalkVoiceKey='',voiceFlashTimer=null,voicePlayer=null;
 let holeSignatures=new Map(),wagerAmounts=new Map(),actionSignatures=new Map(),highlightedWinners=new Set();
 async function refresh(){if(refreshing)return;refreshing=true;try{const response=await fetch('/state',{cache:'no-store'});if(!response.ok)throw Error();const s=await response.json();lastState=s;render(s);document.body.dataset.connected='true'}catch(_){document.body.dataset.connected='false';connection.textContent='RECONNECTING';commentary.textContent='Waiting for the game-state feed…'}finally{refreshing=false}}
 function plainAction(action){return ({small_blind:'posts small blind',big_blind:'posts big blind',ante:'posts ante',all_in:'moves all-in'})[action]||String(action||'waits').replaceAll('_',' ')}
@@ -390,14 +390,17 @@ function nextMusicTrack(){if(!musicTracks.length)return null;const track=musicTr
 function updateMusicVolume(){if(!musicPlayer)return;const mix=audioMix();musicPlayer.volume=Math.max(0,Math.min(.55,mix.master*mix.music))}
 function startMusic(){if(!document.body.classList.contains('audio-on')||document.body.dataset.music!=='on'||!musicTracks.length)return;const mix=audioMix();if(!mix.musicOn||mix.master<=0||mix.music<=0)return;if(musicPlayer&&!musicPlayer.paused){updateMusicVolume();return}const track=nextMusicTrack();if(!track)return;musicPlayer=new Audio(track);musicPlayer.preload='auto';musicPlayer.onended=()=>{musicPlayer=null;setTimeout(startMusic,350)};musicPlayer.onerror=()=>{musicPlayer=null;setTimeout(startMusic,1500)};updateMusicVolume();musicPlayer.play().then(()=>{musicBlocked=false}).catch(()=>{musicBlocked=true})}
 function unlockAudio(){try{const C=window.AudioContext||window.webkitAudioContext,ctx=window.__ctx||(window.__ctx=new C());if(ctx.state==='suspended')ctx.resume()}catch(_){}startMusic()}
+function flashVoice(cue,duration){voiceFlash.textContent=cue.caption||cue.headline||cue.line||cue.voice_line||'';voiceFlash.classList.remove('show');requestAnimationFrame(()=>voiceFlash.classList.add('show'));clearTimeout(voiceFlashTimer);voiceFlashTimer=setTimeout(()=>voiceFlash.classList.remove('show'),Math.max(2200,Number(duration||cue.duration_ms||4200)))}
+function playVoiceClip(cue,key,duration,volumeScale=.95){if(!voiceCuesOn||!document.body.classList.contains('audio-on')||!cue?.audio_url)return false;const now=Date.now();if(key===lastVoiceCueKey||now-lastVoiceCueAt<voiceCooldownMs)return 'blocked';lastVoiceCueKey=key;lastVoiceCueAt=now;flashVoice(cue,duration);try{if('speechSynthesis'in window)speechSynthesis.cancel();if(voicePlayer){voicePlayer.pause();voicePlayer=null}const mix=audioMix();voicePlayer=new Audio(cue.audio_url);voicePlayer.preload='auto';voicePlayer.volume=Math.max(.12,Math.min(.92,mix.master*volumeScale));voicePlayer.onended=()=>{voicePlayer=null;startMusic()};voicePlayer.onerror=()=>{voicePlayer=null;startMusic()};voicePlayer.play().catch(()=>{voicePlayer=null});return 'played'}catch(_){return false}}
 function presentationFor(s){return directorOn?(s.presentation||{mode:'table',headline:'Live table',explainer:'The table is preparing the next action.',spotlight_seat_ids:[],visual_intensity:0,recap:{},bumper:{enabled:false},engagement:{enabled:false}}):{mode:'table',headline:'Live table',explainer:'Director disabled for this browser source.',spotlight_seat_ids:[],visual_intensity:0,recap:{},bumper:{enabled:false},engagement:{enabled:false}}}
 function renderCasinoBumper(bumper){bumper=bumper||{};const visible=directorOn&&bumper.enabled;casinoBumper.classList.toggle('show',visible);if(!visible)return;const family=bumper.visual_family||'poker_recap';casinoBumper.dataset.kind=bumper.kind||'';casinoBumper.dataset.family=family;casinoBumper.dataset.style=bumper.style||'night_city_recaps';casinoBumper.dataset.durationMs=Number(bumper.duration_ms||6500);bumperKind.textContent=String(bumper.theme||family||bumper.kind||'broadcast_bumper').replaceAll('_',' ').toUpperCase();bumperTitle.textContent=bumper.title||'Casino break';bumperSubtitle.textContent=bumper.subtitle||'Decorative intermission based on the previous poker hand.';bumperRelevance.textContent=bumper.relevance||'This bumper is derived from the previous poker hand.';bumperSafe.style.display=bumper.responsible_label===false?'none':'inline-block';const symbols=(bumper.stats?.symbols||['AI','POKER','★']).slice(0,3);bumperReels.innerHTML=symbols.map(symbol=>`<div class="bumper-reel">${esc(symbol)}</div>`).join('');const stats=bumper.stats||{},statRows=[];if(stats.amount)statRows.push(`${Number(stats.amount).toLocaleString()} CHIPS`);if(stats.hand)statRows.push(esc(stats.hand));if(stats.format)statRows.push(esc(stats.format));if(stats.scene)statRows.push(esc(stats.scene));bumperStats.innerHTML=statRows.slice(0,3).map(row=>`<span>${row}</span>`).join('')}
 function renderEngagement(director){const e=director.engagement||{},visible=directorOn&&engagementOn&&e.enabled;audienceRibbon.classList.toggle('show',visible);if(!visible)return;audienceKicker.textContent=String(e.context||'CHAT').replace(' prompt','').toUpperCase();audiencePrompt.textContent=e.prompt||'Call out the next winner in chat.';audienceFollow.textContent=e.follow||'Follow for 24/7 autonomous AI poker.';audienceSafe.textContent=e.safe_label||'Bragging rights only · fictional chips · no wagers.';bumperEngagement.innerHTML=`${esc(e.follow||'Follow for 24/7 autonomous AI poker.')}<small>${esc(e.prompt||'Call out the next winner in chat.')} · ${esc(e.safe_label||'Bragging rights only')}</small>`;winnerEngagement.innerHTML=`${esc(e.prompt||'Call out the next winner in chat.')}<small>${esc(e.follow||'Follow for 24/7 autonomous AI poker.')} · ${esc(e.safe_label||'Bragging rights only')}</small>`}
 function casinoCardRow(cards){return (cards||[]).map((c,index)=>card(c,index,true)).join('')||'<span class="card placeholder"></span><span class="card placeholder"></span>'}
-function speakCasinoCue(casino){const cue=casino?.spectacle_cue||{};if(!voiceCuesOn||!narrationOn||!cue.voice_line||!('speechSynthesis'in window))return;const key=`casino|${casino.round_id}|${cue.voice_line}`,now=Date.now();if(key===lastCasinoCueKey||now-lastVoiceCueAt<voiceCooldownMs)return;lastCasinoCueKey=key;lastVoiceCueAt=now;voiceFlash.textContent=cue.headline||cue.voice_line;voiceFlash.classList.remove('show');requestAnimationFrame(()=>voiceFlash.classList.add('show'));clearTimeout(voiceFlashTimer);voiceFlashTimer=setTimeout(()=>voiceFlash.classList.remove('show'),Math.max(2600,Number(cue.duration_ms||4600)));try{speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(String(cue.voice_line).slice(0,220));utterance.rate=.92;utterance.pitch=.86;utterance.volume=Math.max(.15,Math.min(.88,audioMix().master*.92));speechSynthesis.speak(utterance)}catch(_){}}
+function speakCasinoCue(casino){const cue=casino?.spectacle_cue||{};if(!voiceCuesOn||!cue.voice_line)return;const key=`casino|${casino.round_id}|${cue.voice_line}`;if(key===lastCasinoCueKey)return;const clipStatus=playVoiceClip({...cue,line:cue.voice_line,caption:cue.headline||cue.voice_line},key,Math.max(2600,Number(cue.duration_ms||4600)),.9);if(clipStatus==='played'){lastCasinoCueKey=key;return}if(clipStatus==='blocked')return;if(!narrationOn||!('speechSynthesis'in window))return;const now=Date.now();if(now-lastVoiceCueAt<voiceCooldownMs)return;lastCasinoCueKey=key;lastVoiceCueAt=now;flashVoice({...cue,line:cue.voice_line,caption:cue.headline||cue.voice_line},Math.max(2600,Number(cue.duration_ms||4600)));try{speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(String(cue.voice_line).slice(0,220));utterance.rate=.92;utterance.pitch=.86;utterance.volume=Math.max(.15,Math.min(.88,audioMix().master*.92));speechSynthesis.speak(utterance)}catch(_){}}
 function renderCasinoRoom(s){const casino=s.casino||{},game=casino.active_game||'poker',block=casino.program_block||{},outcome=casino.outcome||{},cue=casino.spectacle_cue||{},participants=casino.participants||[];document.body.dataset.casinoGame=game;const visible=directorOn&&casino.enabled&&game&&game!=='poker';casinoRoom.classList.toggle('show',visible);casinoRoom.dataset.game=game||'poker';if(!visible)return;roomKicker.textContent=String(game).replaceAll('_',' ').toUpperCase();roomTitle.textContent=block.title||cue.headline||'Night City room';roomSafe.textContent=casino.responsible_label||block.safety_label||'SIMULATION ONLY · FICTIONAL BANKROLLS · NO VIEWER CONTROL';casinoHostTitle.textContent=cue.headline||block.host_intro||'Cyber host';casinoHostLine.textContent=cue.caption||block.viewer_hook||'AI-only side room beat.';casinoOutcome.textContent=outcome.summary||outcome.headline||block.viewer_hook||'The room is resolving.';let label='',cardsMarkup='';if(game==='blackjack'){const dealer=outcome.dealer||{};label=`Dealer ${dealer.total!=null?'<b>'+esc(dealer.total)+'</b>':'<b>?</b>'} · AI blackjack room`;cardsMarkup=casinoCardRow(dealer.cards||dealer.visible)}else if(game==='baccarat'){label=`Player <b>${esc(outcome.player_total??'—')}</b> · Banker <b>${esc(outcome.banker_total??'—')}</b> · ${String(outcome.winning_side||'revealing').toUpperCase()}`;cardsMarkup=`<div><div class="casino-hand-label">PLAYER SIDE</div><div class="casino-card-row">${casinoCardRow(outcome.player_hand)}</div></div><div><div class="casino-hand-label">BANKER SIDE</div><div class="casino-card-row">${casinoCardRow(outcome.banker_hand)}</div></div>`}else{label=block.viewer_hook||'Room transition';cardsMarkup='<span class="card placeholder"></span><span class="card placeholder"></span><span class="card placeholder"></span>'}casinoHandLabel.innerHTML=label;casinoCards.innerHTML=cardsMarkup;casinoParticipants.innerHTML=participants.slice(0,6).map(p=>`<article class="casino-participant" style="--ai-color:${esc(p.color||'#65f7ff')}"><strong>${esc(p.name)}</strong><small>${esc(p.outcome||p.side||(p.decisions||[]).slice(-1)[0]||p.persona||'watching')}</small><div class="casino-mini-cards">${casinoCardRow(p.cards)}</div></article>`).join('');casinoBankroll.innerHTML=participants.slice().sort((a,b)=>Number(b.bankroll)-Number(a.bankroll)).slice(0,6).map(p=>`<div class="bankroll-row"><b>${esc(p.name)}</b><span>${Number(p.bankroll||0).toLocaleString()}</span><small>${Number(p.delta||0)>0?'+':''}${Number(p.delta||0).toLocaleString()} this room</small></div>`).join('');speakCasinoCue(casino)}
 function renderShowrunner(director){const visible=directorOn&&showrunnerOn&&director.showrunner_schema_version===1;document.body.dataset.beatType=director.beat_type||'table';showrunnerFocus.classList.toggle('show',visible);if(!visible)return;showrunnerKicker.textContent=String(director.beat_type||'watch').replaceAll('_',' ').toUpperCase();showrunnerCopy.textContent=director.viewer_focus||director.explainer||'Watch the next decision.';const labels=director.non_reader_labels||{},items=nonReaderOn&&labels.enabled?labels.items||[]:[];nonReaderStrip.innerHTML=items.map(item=>`<span class="readless-chip ${esc(item.tone||'')}"><small>${esc(item.label)}</small><b>${esc(item.value)}</b></span>`).join('');speakVoiceCue(director)}
-function speakVoiceCue(director){const cue=director.voice_cue||{};if(!showrunnerOn||!voiceCuesOn||!narrationOn||cue.enabled===false||!cue.line||!('speechSynthesis'in window))return;const key=cue.id||`${director.beat_type}|${cue.line}`,now=Date.now();if(key===lastVoiceCueKey||now-lastVoiceCueAt<voiceCooldownMs)return;lastVoiceCueKey=key;lastVoiceCueAt=now;voiceFlash.textContent=cue.caption||cue.line;voiceFlash.classList.remove('show');requestAnimationFrame(()=>voiceFlash.classList.add('show'));clearTimeout(voiceFlashTimer);voiceFlashTimer=setTimeout(()=>voiceFlash.classList.remove('show'),Math.max(2200,Number(cue.duration_ms||4200)));try{speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(String(cue.line).slice(0,220));utterance.rate=.94;utterance.volume=Math.max(.15,Math.min(.9,audioMix().master*.95));speechSynthesis.speak(utterance)}catch(_){}}
+function speakVoiceCue(director){const cue=director.voice_cue||{};if(!showrunnerOn||!voiceCuesOn||cue.enabled===false||!cue.line)return;const key=cue.id||`${director.beat_type}|${cue.line}`;if(playVoiceClip(cue,key,Math.max(2200,Number(cue.duration_ms||4200)),.95))return;if(!narrationOn||!('speechSynthesis'in window))return;const now=Date.now();if(key===lastVoiceCueKey||now-lastVoiceCueAt<voiceCooldownMs)return;lastVoiceCueKey=key;lastVoiceCueAt=now;flashVoice(cue,Math.max(2200,Number(cue.duration_ms||4200)));try{speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(String(cue.line).slice(0,220));utterance.rate=.94;utterance.volume=Math.max(.15,Math.min(.9,audioMix().master*.95));speechSynthesis.speak(utterance)}catch(_){}}
+function speakTableTalkCue(s){const cue=s.presentation?.table_talk_voice||{};if(!voiceCuesOn||cue.enabled===false||!cue.line)return;const key=cue.id||`talk|${cue.speaker}|${cue.line}`;if(key===lastTableTalkVoiceKey)return;const clipStatus=playVoiceClip(cue,key,3600,.82);if(clipStatus==='played'){lastTableTalkVoiceKey=key;return}if(clipStatus==='blocked')return;if(!narrationOn||!('speechSynthesis'in window))return;const now=Date.now();if(now-lastVoiceCueAt<voiceCooldownMs)return;lastTableTalkVoiceKey=key;lastVoiceCueAt=now;flashVoice(cue,3600);try{speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(String(`${cue.speaker||'AI'} says. ${cue.line}`).slice(0,220));utterance.rate=.98;utterance.volume=Math.max(.12,Math.min(.78,audioMix().master*.82));speechSynthesis.speak(utterance)}catch(_){}}
 function renderDirector(s,director,equityPlayers){const mode=director.mode||'table',intensity=Math.max(0,Math.min(100,Number(director.visual_intensity||0)));document.body.dataset.directorMode=mode;document.body.dataset.intensity=intensity;recapCard.dataset.durationMs=recapDuration;directorDebug.textContent=`DIRECTOR ${mode.toUpperCase()} · INTENSITY ${intensity}`;directorMode.textContent=mode.replace('_',' ').toUpperCase();directorHeadline.textContent=director.headline||'Live table';directorExplainer.textContent=director.viewer_focus||director.explainer||'The table is preparing the next action.';directorLower.classList.toggle('show',directorOn&&mode!=='table'&&mode!=='recap');renderShowrunner(director);const raceVisible=directorOn&&['big_pot','all_in','showdown'].includes(mode)&&equityPlayers.length>1;equityRace.classList.toggle('show',raceVisible);equityRace.innerHTML=raceVisible?equityPlayers.slice().sort((a,b)=>Number(b.equity)-Number(a.equity)).slice(0,4).map(p=>`<div class="race-runner"><b><span>${esc(p.name)}</span><span>${Number(p.equity||0).toFixed(0)}%</span></b><div class="race-track"><i style="--pct:${Math.max(2,Number(p.equity||0))}%;--runner:${esc(p.profile?.color||'#f2d36d')}"></i></div></div>`).join(''):'';const bumper=director.bumper||{};renderCasinoBumper(bumper);const recap=director.recap||{},recapVisible=directorOn&&recap.visible&&mode==='recap'&&!bumper.enabled;recapCard.classList.toggle('show',recapVisible);if(recapVisible){recapTitle.textContent=`${(recap.winners||[]).map(w=>w.name).join(' + ')||'Winner'} · ${recap.hand||'Winning hand'}`;recapDetail.textContent=`${recap.amount?Number(recap.amount).toLocaleString()+' chips awarded. ':''}${recap.detail||'The hand is complete.'}`;recapNext.textContent=recap.next||'';recapStandings.innerHTML=(recap.standings||[]).slice(0,3).map((row,index)=>`<div class="recap-rank">#${index+1} ${esc(row.name)}<br>${Number(row.chips||0).toLocaleString()} chips</div>`).join('')}}
 function latestTalk(s){return [...(s.commentary||[])].reverse().find(line=>String(line).includes(':')&&!/\bwins?\b|\bposts\b|\bdealt\b/i.test(String(line)))||''}
 function latestWinnerLine(s){return [...(s.commentary||[])].reverse().find(line=>/\bwins?\b|\bshare\b|\bawarded\b/i.test(String(line)))||''}
@@ -440,7 +443,7 @@ function render(s){
  const breakdown=(s.pots||[]).filter(p=>Number(p.amount)>0),breakdownTotal=breakdown.reduce((sum,p)=>sum+Number(p.amount),0);
  pots.innerHTML=`<span class="pot-chip total">TOTAL POT ${livePot.toLocaleString()}</span>`+(breakdown.length>1&&breakdownTotal===livePot?breakdown.map(p=>`<span class="pot-chip">${p.kind.toUpperCase()} ${Number(p.amount).toLocaleString()}</span>`).join(''):'');
  const champion=s.tournament?.complete?s.players.find(p=>p.id===s.tournament.winner):null;analysis.textContent=champion?`${champion.name.toUpperCase()} IS THE SIT & GO CHAMPION`:s.analysis?.pending?'Updating everyone’s chance to win…':'Chance-to-win estimates are spectator-only and never shown to the AI players.';
- const livePlayers=s.players.filter(p=>!p.eliminated),leader=livePlayers.reduce((best,p)=>!best||p.chips>best.chips?p:best,null),equityPlayers=s.players.filter(p=>!p.folded&&p.equity!=null),favorite=equityPlayers.reduce((best,p)=>!best||Number(p.equity)>Number(best.equity)?p:best,null);renderDirector(s,director,equityPlayers);renderLowerThird(s,director);renderCasinoRoom(s);renderEngagement(director);renderBroadcastRotator(s,director,equityPlayers,leader,actor);
+ const livePlayers=s.players.filter(p=>!p.eliminated),leader=livePlayers.reduce((best,p)=>!best||p.chips>best.chips?p:best,null),equityPlayers=s.players.filter(p=>!p.folded&&p.equity!=null),favorite=equityPlayers.reduce((best,p)=>!best||Number(p.equity)>Number(best.equity)?p:best,null);renderDirector(s,director,equityPlayers);renderLowerThird(s,director);renderCasinoRoom(s);renderEngagement(director);renderBroadcastRotator(s,director,equityPlayers,leader,actor);speakTableTalkCue(s);
  players.innerHTML=s.players.map(p=>{
    const cardsForPlayer=p.hole_cards||[],holeSignature=JSON.stringify(cardsForPlayer),holeFresh=cardsForPlayer.length>0&&holeSignatures.get(p.id)!==holeSignature;holeSignatures.set(p.id,holeSignature);
    const wager=Number(p.street_commitment||0),wagerFresh=wager>0&&wagerAmounts.get(p.id)!==wager;wagerAmounts.set(p.id,wager);
@@ -487,7 +490,7 @@ class QuietThreadingHTTPServer(ThreadingHTTPServer):
 
 
 class OverlayServer:
-    def __init__(self, game, host="127.0.0.1", port=8765, background="#071c13", accent="#e6b94a", font="Arial, sans-serif", layout="horizontal", reduced_motion=False, audio_enabled=False, disclaimer_enabled=True, director_enabled=True, rotation_enabled=True, rotation_interval_ms=9000, narration_enabled=False, showrunner_enabled=True, voice_cues_enabled=True, voice_cooldown_ms=9000, non_reader_mode=True, night_city_intensity="high", venue_theme_enabled=True, recap_duration_ms=7500, moment_duration_ms=6200, visual_debug=False, music_dir="music", music_enabled=True, sound_effects_dir="sound_effects"):
+    def __init__(self, game, host="127.0.0.1", port=8765, background="#071c13", accent="#e6b94a", font="Arial, sans-serif", layout="horizontal", reduced_motion=False, audio_enabled=False, disclaimer_enabled=True, director_enabled=True, rotation_enabled=True, rotation_interval_ms=9000, narration_enabled=False, showrunner_enabled=True, voice_cues_enabled=True, voice_cooldown_ms=9000, non_reader_mode=True, night_city_intensity="high", venue_theme_enabled=True, recap_duration_ms=7500, moment_duration_ms=6200, visual_debug=False, music_dir="music", music_enabled=True, sound_effects_dir="sound_effects", voice_service=None):
         self.game = game
         self.host = host
         self.port = port
@@ -516,6 +519,7 @@ class OverlayServer:
         self.music_tracks = self._discover_music_tracks()
         self.sound_effects_dir = Path(sound_effects_dir)
         self.sound_effects = self._discover_sound_effects()
+        self.voice_service = voice_service
         self._server = None
         self._thread = None
         self._closing = False
@@ -531,7 +535,7 @@ class OverlayServer:
                 parsed = urlparse(self.path)
                 path = parsed.path
                 if path == "/state":
-                    self._send_json(outer.game.state_snapshot())
+                    self._send_json(outer.state_snapshot())
                 elif path == "/events":
                     self._send_events(parse_qs(parsed.query))
                 elif path in ("/", "/overlay"):
@@ -553,6 +557,8 @@ class OverlayServer:
                     self._send_music(path)
                 elif path.startswith("/sound/"):
                     self._send_sound(path)
+                elif path.startswith("/voice/"):
+                    self._send_voice(path)
                 else:
                     self._send_json({"error": "not found"}, status=404)
 
@@ -626,6 +632,17 @@ class OverlayServer:
                 content_type = {"mp3": "audio/mpeg", "wav": "audio/wav", "ogg": "audio/ogg"}.get(extension, "application/octet-stream")
                 self._send_media_file(track, content_type)
 
+            def _send_voice(self, path):
+                match = re.fullmatch(r"/voice/([a-f0-9]{24,64}\.wav)", path)
+                if not match or not outer.voice_service:
+                    self._send_json({"error": "not found"}, status=404)
+                    return
+                track = outer.voice_service.voice_clip_path(match.group(1))
+                if not track:
+                    self._send_json({"error": "not found"}, status=404)
+                    return
+                self._send_media_file(track, "audio/wav")
+
             def _send_media_file(self, track, content_type):
                 try:
                     size = track.stat().st_size
@@ -686,6 +703,123 @@ class OverlayServer:
     @property
     def url(self):
         return f"http://{self.host}:{self.port}/overlay"
+
+    def state_snapshot(self):
+        state = self.game.state_snapshot()
+        self._attach_voice_clips(state)
+        return state
+
+    def _attach_voice_clips(self, state):
+        service = self.voice_service
+        audio = state.setdefault("audio", {})
+        if service:
+            audio["voice_clips"] = service.snapshot()
+        else:
+            audio["voice_clips"] = {"schema_version": 1, "enabled": False, "status": "disabled"}
+            return
+
+        presentation = state.get("presentation") or {}
+        cue = presentation.get("voice_cue") or {}
+        if cue.get("enabled") and cue.get("line"):
+            cue.update(
+                service.prepare_voice_cue(
+                    cue,
+                    speaker_id="host",
+                    speaker_name=cue.get("speaker") or "Night City host",
+                    voice="host",
+                    kind="host",
+                )
+            )
+
+        casino = state.get("casino") or {}
+        spectacle = casino.get("spectacle_cue") or {}
+        if spectacle.get("voice_line"):
+            spectacle_cue = {
+                "id": f"casino|{casino.get('round_id', 0)}|{spectacle.get('voice_line', '')}",
+                "line": spectacle.get("voice_line", ""),
+            }
+            spectacle.update(
+                service.prepare_voice_cue(
+                    spectacle_cue,
+                    speaker_id="host",
+                    speaker_name="Night City host",
+                    voice="host",
+                    kind="casino_host",
+                )
+            )
+
+        talk = self._latest_table_talk_voice(state)
+        if talk:
+            talk.update(
+                service.prepare_voice_cue(
+                    {"id": talk["id"], "line": talk["line"]},
+                    speaker_id=talk["player_id"],
+                    speaker_name=talk["speaker"],
+                    voice=talk["voice_id"],
+                    kind="table_talk",
+                )
+            )
+            presentation["table_talk_voice"] = talk
+
+    def _latest_table_talk_voice(self, state):
+        players = state.get("players") or []
+        by_id = {str(player.get("id", "")): player for player in players}
+        by_name = {str(player.get("name", "")).lower(): player for player in players}
+        try:
+            recent_events = self.game.events_since(max(0, int(state.get("event_sequence", 0)) - 80))
+        except Exception:
+            recent_events = []
+        for event in reversed(recent_events):
+            if event.get("type") != "table_talk":
+                continue
+            line = str(event.get("message") or "").strip()
+            if not line or ":" not in line:
+                continue
+            speaker, text = line.split(":", 1)
+            text = re.sub(r"\s+", " ", text).strip()
+            if not text:
+                continue
+            event_player_id = str(event.get("player_id") or "")
+            event_speaker = str(event.get("player") or speaker.strip())
+            player = by_id.get(event_player_id) or by_name.get(event_speaker.lower()) or by_name.get(speaker.strip().lower())
+            profile = (player or {}).get("profile") or {}
+            player_id = (player or {}).get("id") or event_player_id or speaker.strip().lower()
+            digest = re.sub(r"[^a-zA-Z0-9]+", "-", text.lower()).strip("-")[:32]
+            return {
+                "schema_version": 1,
+                "enabled": True,
+                "id": f"talk|{event.get('id', state.get('event_sequence', 0))}|{player_id}|{digest}",
+                "speaker": event_speaker,
+                "player_id": player_id,
+                "voice_id": profile.get("voice") or player_id,
+                "line": text[:160],
+                "caption": line[:190],
+            }
+        for raw in reversed(state.get("commentary") or []):
+            line = str(raw or "").strip()
+            if ":" not in line or re.search(r"\b(wins?|posts|dealt)\b", line, re.IGNORECASE):
+                continue
+            speaker, text = line.split(":", 1)
+            player = by_name.get(speaker.strip().lower())
+            if not player:
+                continue
+            text = re.sub(r"\s+", " ", text).strip()
+            if not text:
+                continue
+            profile = player.get("profile") or {}
+            player_id = player.get("id") or speaker.strip().lower()
+            digest = re.sub(r"[^a-zA-Z0-9]+", "-", text.lower()).strip("-")[:32]
+            return {
+                "schema_version": 1,
+                "enabled": True,
+                "id": f"talk|{state.get('hand_number', 0)}|{player_id}|{digest}",
+                "speaker": player.get("name", speaker.strip()),
+                "player_id": player_id,
+                "voice_id": profile.get("voice") or player_id,
+                "line": text[:160],
+                "caption": line[:190],
+            }
+        return None
 
     @staticmethod
     def _query_enabled(query, key, default):
@@ -764,6 +898,8 @@ class OverlayServer:
 
     def close(self):
         self._closing = True
+        if self.voice_service:
+            self.voice_service.close()
         if self._server:
             self._server.shutdown()
             self._server.server_close()
