@@ -168,7 +168,7 @@ class AppSettings:
     tts_volume: float = 0.8
     tts_rate: int = 175
     tts_voice: str = ""
-    audio_enabled: bool = True
+    audio_enabled: bool = False
     audio_volume: float = 0.45
     ambience_enabled: bool = True
     ambience_volume: float = 0.16

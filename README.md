@@ -64,7 +64,7 @@ The header health badge summarizes normal play, live Ollama decisions, safe mode
 - `/events` is a reconnectable server-sent event stream with monotonic IDs for animation and custom integrations.
 - `/health` provides a minimal service probe.
 
-The OBS browser source now carries table cues and the casino music bed by default, so OBS's **Control audio via OBS** option can mix the `AI Poker` source directly. Use `?audio=0`, `?music=0`, or `overlay_audio_enabled: false` if you instead capture the desktop app through OBS Application Audio Capture and want to prevent doubled sound. Master, ambience, effects, music, and voice levels are separate, and nonessential sound is ducked around speech.
+The OBS browser source carries table cues and the casino music bed by default, so OBS's **Control audio via OBS** option can mix the `AI Poker` source directly. Headless production runs keep local desktop playback muted by default to avoid hearing the same show in both headphones and OBS. Use `--desktop-audio` only when you intentionally want the Python/Qt app to play locally, and use `?audio=0`, `?music=0`, or `overlay_audio_enabled: false` only if you are capturing that desktop app audio separately.
 
 Before a long production run, use the preflight checker:
 
@@ -74,7 +74,7 @@ python scripts/production_preflight.py --url http://127.0.0.1:8765
 
 Add `--strict-ollama` when you want launch to fail unless local Ollama models and recent live Ollama decisions are visible. Without strict mode, an Ollama outage is a warning because the stream remains rules-safe and visibly labeled as fallback.
 
-Stream-safe WAV tracks placed in `music/` play as a shuffled casino music bed by default in both the desktop mixer and the OBS browser source. Short samples in `sound_effects/` add tactile broadcast Foley; `card_flip.mp3` is served to the OBS browser source for card/deck reveals, and a matching `card_flip.wav` can override generated desktop card Foley. Use `music_enabled`, `music_path`, `music_volume`, `music_shuffle`, and `sound_effects_path` in config, or launch with `--no-music`, `--music-path`, and `--music-volume`, to tune the playlist without changing the Foley or voice mix.
+Stream-safe WAV tracks placed in `music/` play as a shuffled casino music bed in the OBS browser source. Short samples in `sound_effects/` add tactile broadcast Foley; `card_flip.mp3` is served to the OBS browser source for card/deck reveals, and a matching `card_flip.wav` can override generated desktop card Foley if local desktop audio is explicitly enabled. Use `music_enabled`, `music_path`, `music_volume`, `music_shuffle`, and `sound_effects_path` in config, or launch with `--no-music`, `--music-path`, and `--music-volume`, to tune the playlist without changing the Foley or voice mix.
 
 Preview and inspect the real broadcast without Ollama:
 

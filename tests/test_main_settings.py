@@ -40,6 +40,20 @@ def test_headless_cli_enables_obs_only_runner(tmp_path):
     )
     assert settings.headless
     assert not settings.continuous_play
+    assert not settings.audio_enabled
+
+
+def test_desktop_audio_is_explicit_opt_in_for_headless(tmp_path):
+    settings = build_settings(
+        parse_args(["--config", str(tmp_path / "missing.json"), "--headless", "--desktop-audio"])
+    )
+    assert settings.headless
+    assert settings.audio_enabled
+
+    muted = build_settings(
+        parse_args(["--config", str(tmp_path / "missing.json"), "--headless", "--desktop-audio", "--mute"])
+    )
+    assert not muted.audio_enabled
 
 
 def test_broadcast_pacing_cli_overrides_are_milliseconds(tmp_path):

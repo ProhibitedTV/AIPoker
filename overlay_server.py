@@ -275,6 +275,36 @@ body.lower-third-on.hud-minimal .center .cards .card{width:82px;height:114px;bor
 body.lower-third-on.hud-minimal .center .cards .card-corner b{font-size:23px}
 body.lower-third-on.hud-minimal .center .cards .card-corner i{font-size:16px}
 body.lower-third-on.hud-minimal .center .cards .card-pip{font-size:46px}
+body.lower-third-on.hud-minimal .center{width:min(780px,56vw)}
+body.lower-third-on.hud-minimal .center .cards{min-height:138px;gap:13px;margin:12px auto 10px}
+body.lower-third-on.hud-minimal .center .cards .card{width:96px;height:134px;border-radius:13px}
+body.lower-third-on.hud-minimal .center .cards .card-corner{left:9px;top:8px}
+body.lower-third-on.hud-minimal .center .cards .card-corner.bottom{right:9px;bottom:8px;left:auto;top:auto}
+body.lower-third-on.hud-minimal .center .cards .card-corner b{font-size:27px}
+body.lower-third-on.hud-minimal .center .cards .card-corner i{font-size:18px}
+body.lower-third-on.hud-minimal .center .cards .card-pip{font-size:54px}
+body.lower-third-on.hud-minimal .player .hole{min-height:64px;gap:7px}
+body.lower-third-on.hud-minimal .player .hole .card{width:44px;height:62px;border-radius:7px}
+body.lower-third-on.hud-minimal .player .hole .card-corner b{font-size:15px}
+body.lower-third-on.hud-minimal .player .hole .card-corner i{font-size:11px}
+body.lower-third-on.hud-minimal .player .hole .card-pip{font-size:28px}
+body.lower-third-on.hud-minimal .player.next .hole,body.lower-third-on.hud-minimal .player.spotlight .hole,body.lower-third-on.hud-minimal .player.winner .hole,body.lower-third-on.hud-minimal .player.all_in .hole{min-height:78px}
+body.lower-third-on.hud-minimal .player.next .hole .card,body.lower-third-on.hud-minimal .player.spotlight .hole .card,body.lower-third-on.hud-minimal .player.winner .hole .card,body.lower-third-on.hud-minimal .player.all_in .hole .card{width:54px;height:76px;border-radius:8px}
+body.lower-third-on.hud-minimal .player.next .hole .card-corner b,body.lower-third-on.hud-minimal .player.spotlight .hole .card-corner b,body.lower-third-on.hud-minimal .player.winner .hole .card-corner b,body.lower-third-on.hud-minimal .player.all_in .hole .card-corner b{font-size:17px}
+body.lower-third-on.hud-minimal .player.next .hole .card-corner i,body.lower-third-on.hud-minimal .player.spotlight .hole .card-corner i,body.lower-third-on.hud-minimal .player.winner .hole .card-corner i,body.lower-third-on.hud-minimal .player.all_in .hole .card-corner i{font-size:12px}
+body.lower-third-on.hud-minimal .player.next .hole .card-pip,body.lower-third-on.hud-minimal .player.spotlight .hole .card-pip,body.lower-third-on.hud-minimal .player.winner .hole .card-pip,body.lower-third-on.hud-minimal .player.all_in .hole .card-pip{font-size:34px}
+body.lower-third-on.hud-minimal .winner-card-row .card{width:64px;height:90px;border-radius:9px}
+body.lower-third-on.hud-minimal .winner-card-row .card-pip{font-size:36px}
+body.lower-third-on.hud-minimal .casino-card-row .card{width:68px;height:96px;border-radius:10px}
+body.lower-third-on.hud-minimal .casino-card-row .card-pip{font-size:38px}
+body.compact.lower-third-on.hud-minimal .center{width:auto}
+body.compact.lower-third-on.hud-minimal .center .cards{min-height:72px;gap:8px;margin:8px}
+body.compact.lower-third-on.hud-minimal .center .cards .card{width:50px;height:70px;border-radius:8px}
+body.compact.lower-third-on.hud-minimal .center .cards .card-corner b{font-size:18px}
+body.compact.lower-third-on.hud-minimal .center .cards .card-corner i{font-size:12px}
+body.compact.lower-third-on.hud-minimal .center .cards .card-pip{font-size:29px}
+body.compact.lower-third-on.hud-minimal .player .hole .card,body.compact.lower-third-on.hud-minimal .player.next .hole .card,body.compact.lower-third-on.hud-minimal .player.spotlight .hole .card,body.compact.lower-third-on.hud-minimal .player.winner .hole .card,body.compact.lower-third-on.hud-minimal .player.all_in .hole .card{width:32px;height:44px;border-radius:5px}
+body.compact.lower-third-on.hud-minimal .casino-card-row .card{width:48px;height:67px}
 body.lower-third-on .winner-banner.show{transition:opacity .18s ease,transform .24s ease,visibility .18s;transform:translate(-50%,-50%) scale(1)}
 body.lower-third-on .winner-banner:not(.show){transform:translate(-50%,-43%) scale(.96)}
 </style></head>
