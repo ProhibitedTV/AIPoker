@@ -76,6 +76,31 @@ def test_presentation_table_mode_when_no_one_is_acting():
     assert result["venue"]["enabled"]
     assert "Simulation District" in result["venue"]["header_label"]
     assert result["venue"]["safe_label"] == "simulation-only venue skin"
+    assert result["scene_state"]["schema_version"] == 1
+    assert result["scene_state"]["state"] == "live_hand"
+    assert result["scene_state"]["visible"] is False
+
+
+def test_stream_scene_states_cover_standby_break_and_table_reset():
+    standby = snapshot(stage="Waiting", hand_number=0, pot=0, commentary=[])
+    assert standby["scene_state"]["state"] == "standby"
+    assert standby["scene_state"]["visible"] is True
+    assert "warming up" in standby["scene_state"]["headline"].lower()
+
+    hand_boundary = snapshot(stage="Waiting", hand_number=4, pot=0, commentary=[])
+    assert hand_boundary["scene_state"]["state"] == "live_hand"
+    assert hand_boundary["scene_state"]["visible"] is False
+
+    players = base_players()
+    players[0]["action"] = "Won 120"
+    break_state = snapshot(players, stage="Showdown", hand_number=3, pot=0, commentary=["Atlas wins 120."])
+    assert break_state["scene_state"]["state"] == "break"
+    assert break_state["scene_state"]["visible"] is True
+    assert "FICTIONAL" in break_state["scene_state"]["safe_label"]
+
+    reset = snapshot(stage="Waiting", hand_number=9, pot=0, commentary=["Tournament table reset begins."])
+    assert reset["scene_state"]["state"] == "table_reset"
+    assert reset["scene_state"]["visible"] is True
 
 
 def test_presentation_venue_theme_uses_public_lounge_location():

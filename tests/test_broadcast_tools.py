@@ -70,8 +70,12 @@ def test_broadcast_smoke_generates_artifacts(tmp_path):
     assert summary["fixture_modes"]["decision"] == "decision"
     assert summary["fixture_modes"]["all_in"] == "all_in"
     assert summary["fixture_modes"]["bumper"] == "recap"
+    assert summary["fixture_modes"]["standby"] == "table"
+    assert summary["fixture_modes"]["table_reset"] == "table"
     assert (tmp_path / "overlay-full-recap.html").exists()
     assert (tmp_path / "overlay-full-bumper.html").exists()
+    assert (tmp_path / "overlay-full-standby.html").exists()
+    assert (tmp_path / "overlay-full-table_reset.html").exists()
     assert "DEALER STATION" in (tmp_path / "overlay-full.html").read_text(encoding="utf-8")
     state = json.loads((tmp_path / "state.json").read_text(encoding="utf-8"))
     assert "program" in state
@@ -84,3 +88,5 @@ def test_visual_smoke_checks_director_fixture_modes(tmp_path):
     assert (tmp_path / "visual-summary.json").exists()
     assert result["broadcast_summary"]["fixture_modes"]["recap"] == "recap"
     assert result["broadcast_summary"]["fixture_modes"]["bumper"] == "recap"
+    assert result["broadcast_summary"]["fixture_modes"]["standby"] == "table"
+    assert result["broadcast_summary"]["fixture_modes"]["table_reset"] == "table"
