@@ -13,7 +13,15 @@ def test_default_profiles_include_broadcast_avatar_identity():
     assert profiles[0]["sigil"] == "AX"
     assert profiles[0]["voice"] == "atlas_rvc"
     assert profiles[0]["tagline"]
-    assert all({"avatar", "sigil", "tagline"} <= set(profile) for profile in profiles)
+    assert profiles[0]["nickname"] == "The Auditor"
+    assert profiles[0]["archetype"] == "disciplined grinder"
+    assert profiles[0]["model_name"] == "Atlas Core"
+    assert profiles[0]["attitude"] == "icy patience"
+    assert "all_in" in profiles[0]["moment_lines"]
+    assert all(
+        {"avatar", "sigil", "tagline", "nickname", "archetype", "model_name", "attitude", "reputation", "moment_lines"} <= set(profile)
+        for profile in profiles
+    )
 
 
 def test_audio_cli_overrides_are_clamped(tmp_path):

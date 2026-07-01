@@ -19,6 +19,12 @@ class PlayerProfile:
     avatar: str = "neon_mask"
     sigil: str = ""
     tagline: str = "AI competitor"
+    nickname: str = ""
+    archetype: str = "AI regular"
+    model_name: str = "Local model"
+    attitude: str = "composed"
+    reputation: str = "steady table regular"
+    moment_lines: dict = field(default_factory=dict)
 
     @classmethod
     def from_value(cls, value, seat):
@@ -32,9 +38,18 @@ class PlayerProfile:
         sigil = str(value.get("sigil", "")).strip().upper()[:4]
         if not sigil:
             sigil = str(value.get("name", f"P{seat + 1}")).strip().upper()[:2] or f"P{seat + 1}"
+        moment_lines = value.get("moment_lines") or value.get("lines") or {}
+        if not isinstance(moment_lines, dict):
+            moment_lines = {}
+        moment_lines = {
+            key: str(moment_lines.get(key, "")).strip()[:120]
+            for key in ("all_in", "win", "loss", "fold", "idle")
+            if str(moment_lines.get(key, "")).strip()
+        }
+        name = str(value.get("name", f"AI Player {seat + 1}"))
         return cls(
             id=str(value.get("id", f"seat-{seat + 1}")),
-            name=str(value.get("name", f"AI Player {seat + 1}")),
+            name=name,
             persona=str(value.get("persona", "balanced")),
             model=str(value.get("model", "auto")),
             color=color,
@@ -43,6 +58,12 @@ class PlayerProfile:
             avatar=avatar,
             sigil=sigil,
             tagline=str(value.get("tagline", value.get("persona", "AI competitor")))[:72],
+            nickname=str(value.get("nickname", name))[:32],
+            archetype=str(value.get("archetype", value.get("persona", "AI regular")))[:48],
+            model_name=str(value.get("model_name", value.get("display_model", value.get("model", "Local model"))))[:48],
+            attitude=str(value.get("attitude", "composed"))[:48],
+            reputation=str(value.get("reputation", value.get("tagline", "steady table regular")))[:96],
+            moment_lines=moment_lines,
         )
 
 

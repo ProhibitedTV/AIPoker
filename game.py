@@ -1530,6 +1530,12 @@ class PokerGame:
                             "avatar": player.profile.avatar,
                             "sigil": player.profile.sigil,
                             "tagline": player.profile.tagline,
+                            "nickname": player.profile.nickname,
+                            "archetype": player.profile.archetype,
+                            "model_name": player.profile.model_name,
+                            "attitude": player.profile.attitude,
+                            "reputation": player.profile.reputation,
+                            "moment_lines": dict(player.profile.moment_lines),
                         },
                         "model_health": {
                             "source": player.model_source,
