@@ -128,6 +128,21 @@ def build_presentation_snapshot(
         frequency=casino_bumper_frequency,
         style=casino_bumper_style,
     )
+    scene_state = _scene_state_payload(
+        stage=stage,
+        mode=mode,
+        players=players,
+        actor=actor,
+        winners=winners,
+        tournament=tournament,
+        recap=recap,
+        bumper=bumper,
+        casino=casino,
+        program=program,
+        variety=variety,
+        hand_number=hand_number,
+        commentary=commentary,
+    )
     engagement = _engagement_payload(
         players=players,
         actor=actor,
@@ -199,6 +214,7 @@ def build_presentation_snapshot(
         "explainer": explainer,
         "recap": recap,
         "bumper": bumper,
+        "scene_state": scene_state,
         "engagement": engagement,
         "visual_intensity": int(max(0, min(100, intensity))),
         "hand": int(hand_number or 0),
@@ -212,6 +228,112 @@ def build_presentation_snapshot(
         "audience_hook": showrunner["audience_hook"],
         "lower_third": lower_third,
         "venue": venue,
+    }
+
+
+def _scene_state_payload(
+    *,
+    stage,
+    mode,
+    players,
+    actor,
+    winners,
+    tournament,
+    recap,
+    bumper,
+    casino,
+    program,
+    variety,
+    hand_number,
+    commentary,
+):
+    """Return high-level OBS scene state without changing gameplay.
+
+    The scene state exists for stream continuity: it gives OBS a clean
+    standby/break/reset language while the normal table remains underneath, so
+    reconnects and hand-boundary transitions never flash a blank source.
+    """
+
+    stage_key = str(stage or "").lower()
+    latest = " ".join(str(line) for line in (commentary or [])[-4:])
+    casino = casino or {}
+    program = program or {}
+    variety = variety or {}
+    active_game = str(casino.get("active_game") or "poker")
+    casino_room = bool(casino.get("enabled") and active_game != "poker")
+    reset_hint = bool(re.search(r"\b(reset|restart|restarting|reload|reloading|restored|checkpoint|eliminated|bust|refunded)\b", latest, re.IGNORECASE))
+
+    if int(hand_number or 0) <= 0 or (stage_key in {"standby", "loading"} and not actor and not winners and not (commentary or [])):
+        state = "standby"
+        label = "STANDBY"
+        headline = "Night City table warming up"
+        subhead = "Local models, deck, audio, and OBS overlays are coming online."
+        details = [
+            "Same browser source",
+            "No blank transition",
+            "Simulation-only chips",
+        ]
+        visible = True
+        tone = "cyan"
+    elif tournament.get("complete") or reset_hint:
+        state = "table_reset"
+        label = "TABLE RESET"
+        headline = "Resetting the felt"
+        if tournament.get("complete"):
+            headline = "Tournament table reset"
+        subhead = "Stacks, seats, and the next autonomous deal are being prepared."
+        if variety.get("title"):
+            subhead = f"Next block: {variety.get('title')}. Seats and stacks are being prepared."
+        details = [
+            "Seat check",
+            "Deck reset",
+            "Next hand loading",
+        ]
+        visible = True
+        tone = "gold"
+    elif bumper.get("enabled") or casino_room or recap.get("visible"):
+        state = "break"
+        label = "INTERMISSION"
+        headline = "Cyber casino break"
+        if casino_room:
+            block = casino.get("program_block") or {}
+            headline = block.get("title") or casino.get("spectacle_cue", {}).get("headline") or "Next room opens"
+            subhead = block.get("viewer_hook") or casino.get("spectacle_cue", {}).get("caption") or "AI-only side-room beat while the main felt breathes."
+        elif bumper.get("enabled"):
+            headline = bumper.get("title") or "Night City bumper"
+            subhead = bumper.get("relevance") or bumper.get("subtitle") or "A short poker-relevant bumper bridges the next hand."
+        else:
+            subhead = recap.get("detail") or "Previous hand recap while the table prepares the next deal."
+        details = [
+            "Poker-relevant",
+            "Fictional chips",
+            "No viewer wagers",
+        ]
+        visible = True
+        tone = "magenta"
+    else:
+        state = "live_hand"
+        label = "LIVE HAND"
+        headline = program.get("segment") or "Live hand"
+        subhead = program.get("detail") or "The active table remains the hero shot."
+        details = [
+            str(stage or "Live"),
+            f"{len([player for player in players if not player.get('eliminated')])} seats live",
+        ]
+        visible = False
+        tone = "green"
+
+    return {
+        "schema_version": 1,
+        "state": state,
+        "label": label,
+        "headline": str(headline or label)[:96],
+        "subhead": str(subhead or "")[:160],
+        "details": [str(item)[:42] for item in details if item],
+        "visible": bool(visible),
+        "tone": tone,
+        "transition": "crossfade",
+        "safe_label": "SIMULATION ONLY · FICTIONAL CHIPS · NO REAL MONEY",
     }
 
 

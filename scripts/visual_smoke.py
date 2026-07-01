@@ -35,6 +35,9 @@ REQUIRED_OVERLAY_MARKERS = (
     "casino-bumper",
     "casino-room",
     "renderCasinoRoom",
+    "stream-scene",
+    "renderStreamScene",
+    "data-stream-scene",
     "Fictional bankroll ladder",
     "winner-banner",
     "visual-debug",
@@ -47,12 +50,14 @@ REQUIRED_OVERLAY_MARKERS = (
 
 EXPECTED_FIXTURE_MODES = {
     "table": "table",
+    "standby": "table",
     "decision": "decision",
     "big_pot": "big_pot",
     "all_in": "all_in",
     "showdown": "showdown",
     "recap": "recap",
     "bumper": "recap",
+    "table_reset": "table",
     "casino_blackjack": "table",
     "casino_baccarat": "table",
     "casino_transition": "table",
@@ -86,6 +91,11 @@ def run_visual_smoke(output_dir, players=4):
                 problems.append(f"{state_path.name} expected {expected}, got {mode}")
             if fixture == "bumper" and not state.get("presentation", {}).get("bumper", {}).get("enabled"):
                 problems.append(f"{state_path.name} expected an enabled casino bumper")
+            scene = state.get("presentation", {}).get("scene_state", {})
+            if fixture in {"standby", "table_reset"} and scene.get("state") != fixture:
+                problems.append(f"{state_path.name} expected scene_state {fixture}, got {scene.get('state')}")
+            if fixture == "bumper" and scene.get("state") != "break":
+                problems.append(f"{state_path.name} expected break scene_state for bumper, got {scene.get('state')}")
             if fixture.startswith("casino_") and not state.get("casino", {}).get("enabled"):
                 problems.append(f"{state_path.name} expected enabled casino programming")
             if fixture == "casino_blackjack" and state.get("casino", {}).get("active_game") != "blackjack":

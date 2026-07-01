@@ -24,15 +24,18 @@ CRITICAL_MARKERS = (
     "PRIVATE CARDS",
     "Program warming up",
     "casino-room",
+    "stream-scene",
 )
 VISUAL_FIXTURES = (
     "table",
+    "standby",
     "decision",
     "big_pot",
     "all_in",
     "showdown",
     "recap",
     "bumper",
+    "table_reset",
     "casino_blackjack",
     "casino_baccarat",
     "casino_transition",
@@ -74,6 +77,14 @@ def apply_visual_fixture(game, fixture):
         player.last_action = "Waiting"
     if fixture == "table":
         game.stage = "Waiting"
+        game.pot = 0
+        game.pots = []
+        return
+    if fixture == "standby":
+        game.stage = "Waiting"
+        game.hand_number = 0
+        game.tournament_hand_number = 0
+        game.hand_in_progress = False
         game.pot = 0
         game.pots = []
         return
@@ -135,6 +146,12 @@ def apply_visual_fixture(game, fixture):
         game.pot = 0
         game.pots = []
         game.commentary.append("Atlas wins 920 with pair of aces.")
+    elif fixture == "table_reset":
+        game.stage = "Waiting"
+        game.hand_in_progress = False
+        game.pot = 0
+        game.pots = []
+        game.commentary.append("Tournament table reset begins.")
     elif fixture == "casino_blackjack":
         game.stage = "Casino Program"
         game.hand_in_progress = False
