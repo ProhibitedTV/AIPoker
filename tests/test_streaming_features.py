@@ -255,6 +255,9 @@ class StreamingFeatureTests(unittest.TestCase):
             self.assertIn("hud-minimal", html)
             self.assertIn("ltModuleWipe", html)
             self.assertIn("body.lower-third-on .ticker.lower-third", html)
+            self.assertIn("OBS readability pass", html)
+            self.assertIn("50% preview scale", html)
+            self.assertIn("body.lower-third-on.hud-minimal .center .cards .card{width:108px", html)
             self.assertIn(".card.holo-card{background:linear-gradient(145deg,#08101c", html)
             self.assertIn("lt-module", html)
             self.assertIn("renderBroadcastRotator", html)
@@ -387,21 +390,30 @@ class StreamingFeatureTests(unittest.TestCase):
                     with urlopen(f"http://127.0.0.1:{server.port}/state", timeout=2) as response:
                         state = json.load(response)
                     cue = state["presentation"].get("table_talk_voice", {})
-                    if cue.get("audio_status") == "ready":
+                    bartender_cue = state["presentation"]["bartender"]["voice_cue"]
+                    if cue.get("audio_status") == "ready" and bartender_cue.get("audio_status") == "ready":
                         break
                     time.sleep(0.05)
                 cue = state["presentation"]["table_talk_voice"]
+                bartender_cue = state["presentation"]["bartender"]["voice_cue"]
                 self.assertEqual(cue["speaker"], "Atlas")
                 self.assertEqual(cue["voice_id"], "atlas_rvc")
                 self.assertEqual(cue["audio_status"], "ready")
                 self.assertTrue(cue["audio_url"].startswith("/voice/"))
+                self.assertEqual(bartender_cue["speaker"], "Mira-7")
+                self.assertEqual(bartender_cue["voice_id"], "mira_7")
+                self.assertEqual(bartender_cue["audio_status"], "ready")
+                self.assertTrue(bartender_cue["audio_url"].startswith("/voice/"))
                 self.assertEqual(state["audio"]["voice_clips"]["schema_version"], 1)
                 with urlopen(f"http://127.0.0.1:{server.port}{cue['audio_url']}", timeout=2) as response:
+                    self.assertTrue(response.read(12).startswith(b"RIFF"))
+                with urlopen(f"http://127.0.0.1:{server.port}{bartender_cue['audio_url']}", timeout=2) as response:
                     self.assertTrue(response.read(12).startswith(b"RIFF"))
                 with urlopen(server.url, timeout=2) as response:
                     html = response.read().decode("utf-8")
                 self.assertIn("playVoiceClip", html)
                 self.assertIn("speakTableTalkCue", html)
+                self.assertIn("speakBartenderCue", html)
             finally:
                 server.close()
 
