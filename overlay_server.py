@@ -311,6 +311,43 @@ body.compact.lower-third-on.hud-minimal .player .hole .card,body.compact.lower-t
 body.compact.lower-third-on.hud-minimal .casino-card-row .card{width:48px;height:67px}
 body.lower-third-on .winner-banner.show{transition:opacity .18s ease,transform .24s ease,visibility .18s;transform:translate(-50%,-50%) scale(1)}
 body.lower-third-on .winner-banner:not(.show){transform:translate(-50%,-43%) scale(.96)}
+/* OBS readability pass: designed for Twitch compression and 50% preview scale. */
+body.lower-third-on.hud-minimal .table{min-height:620px}
+body.lower-third-on.hud-minimal .center{top:45%;width:min(840px,60vw)}
+body.lower-third-on.hud-minimal .stage{padding:6px 14px;font-size:15px;letter-spacing:.2em;border-color:#7ef8ff70;background:#030917eb;box-shadow:0 0 18px #58f6ff20}
+body.lower-third-on.hud-minimal .stage-help{max-width:650px;margin:7px auto 0;color:#d5f9ff;font-size:13px;font-weight:850;text-shadow:0 2px 7px #000}
+body.lower-third-on.hud-minimal .center .cards{min-height:150px;gap:14px;margin:14px auto 12px}
+body.lower-third-on.hud-minimal .center .cards .card{width:108px;height:150px;border-radius:15px}
+body.lower-third-on.hud-minimal .center .cards .card-corner{left:10px;top:9px}
+body.lower-third-on.hud-minimal .center .cards .card-corner.bottom{right:10px;bottom:9px;left:auto;top:auto}
+body.lower-third-on.hud-minimal .center .cards .card-corner b{font-size:31px;line-height:.95}
+body.lower-third-on.hud-minimal .center .cards .card-corner i{font-size:20px}
+body.lower-third-on.hud-minimal .center .cards .card-pip{font-size:62px}
+body.lower-third-on.hud-minimal .potline{min-height:42px}
+body.lower-third-on.hud-minimal .pot-chip.total{padding:9px 16px;font-size:16px;border-width:2px;box-shadow:0 0 24px #ffe66b3b,0 8px 24px #000a}
+body.lower-third-on.hud-minimal .analysis-note{max-width:660px;margin:5px auto 0;color:#c1dce4;font-size:11px;font-weight:800}
+body.lower-third-on.hud-minimal .card.holo-card{background:linear-gradient(145deg,#02050d 0,#071325 54%,#01030a 100%)!important;border-width:2px!important;box-shadow:0 12px 22px #000f,0 0 0 1px #ffffff13 inset,0 0 8px color-mix(in srgb,currentColor 22%,transparent)!important}
+body.lower-third-on.hud-minimal .card.holo-card:before{inset:6px;opacity:.42;background:linear-gradient(135deg,transparent 0 42%,currentColor 43% 44%,transparent 45%),linear-gradient(180deg,#ffffff06,#0000)}
+body.lower-third-on.hud-minimal .card.holo-card:after{opacity:.28}
+body.lower-third-on.hud-minimal .card.holo-card .card-corner b{color:#f8fdff;text-shadow:0 2px 4px #000!important}
+body.lower-third-on.hud-minimal .card.holo-card .card-corner i,body.lower-third-on.hud-minimal .card.holo-card .card-pip{text-shadow:0 2px 5px #000!important}
+body.lower-third-on.hud-minimal .player{width:252px;min-height:138px}
+body.lower-third-on.hud-minimal .player.next,body.lower-third-on.hud-minimal .player.spotlight,body.lower-third-on.hud-minimal .player.winner,body.lower-third-on.hud-minimal .player.all_in{width:310px;min-height:204px}
+body.lower-third-on.hud-minimal .player:not(.next):not(.spotlight):not(.winner):not(.all_in) .model,
+body.lower-third-on.hud-minimal .player:not(.next):not(.spotlight):not(.winner):not(.all_in) .seat-label,
+body.lower-third-on.hud-minimal .player:not(.next):not(.spotlight):not(.winner):not(.all_in) .stackrow span{display:none!important}
+body.lower-third-on.hud-minimal .player:not(.next):not(.spotlight):not(.winner):not(.all_in) .stackrow{justify-content:center;font-size:12px}
+body.lower-third-on.hud-minimal .player:not(.next):not(.spotlight):not(.winner):not(.all_in) .stackrow strong{font-size:13px}
+body.lower-third-on.hud-minimal .player:not(.next):not(.spotlight):not(.winner):not(.all_in) .action{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+body.lower-third-on.hud-minimal .player.dimmed:not(.next):not(.spotlight):not(.winner){opacity:.34;filter:saturate(.35) brightness(.58)}
+body.lower-third-on.hud-minimal .lt-headline{font-size:38px;text-shadow:0 2px 9px #000,0 0 16px #58f6ff30}
+body.lower-third-on.hud-minimal .lt-subhead{font-size:17px}
+body.lower-third-on.hud-minimal .lt-module-value{font-size:32px}
+body.lower-third-on.hud-minimal .lt-crawl .commentary{font-size:14px}
+body.compact.lower-third-on.hud-minimal .table{min-height:372px}
+body.compact.lower-third-on.hud-minimal .center .cards{min-height:80px;gap:8px}
+body.compact.lower-third-on.hud-minimal .center .cards .card{width:58px;height:81px}
+body.compact.lower-third-on.hud-minimal .center .cards .card-pip{font-size:34px}
 .stream-scene{position:absolute;z-index:17;left:50%;top:43%;width:min(720px,70%);transform:translate(-50%,-46%) scale(.96);display:grid;gap:10px;padding:22px 26px;border:1px solid #64f7ff75;border-radius:24px;background:radial-gradient(circle at 50% 0,#10284ff0 0,#081229f4 46%,#02040cf8 100%);box-shadow:0 30px 110px #000f,0 0 60px #58f6ff35,0 0 70px #ff58e626,inset 0 1px #ffffff18;opacity:0;visibility:hidden;pointer-events:none;text-align:center;overflow:hidden;transition:opacity .28s ease,transform .36s cubic-bezier(.16,.82,.2,1),visibility .28s}.stream-scene.show{opacity:1;visibility:visible;transform:translate(-50%,-50%) scale(1)}.stream-scene:before{content:'';position:absolute;inset:-40% -20%;background:linear-gradient(115deg,transparent 38%,#6df7ff22 47%,#ff58e622 52%,transparent 62%);transform:translateX(-32%);animation:sceneSweep 6.5s ease-in-out infinite}.scene-safe,.scene-kicker,.scene-title,.scene-subtitle,.scene-detail-row{position:relative;z-index:1}.scene-safe{justify-self:center;padding:4px 9px;border:1px solid #ffffff24;border-radius:999px;background:#0008;color:#d9fbff;font-size:8px;font-weight:950;letter-spacing:.14em}.scene-kicker{color:#7ff7ff;text-shadow:0 0 12px #58f6ff;font-size:10px;font-weight:1000;letter-spacing:.22em;text-transform:uppercase}.scene-title{color:#fff7ff;text-shadow:0 0 22px #ff58e682,0 0 26px #58f6ff42;font-size:34px;font-weight:1000;letter-spacing:.04em;text-transform:uppercase}.scene-subtitle{max-width:620px;margin:0 auto;color:#d7eef4;font-size:14px;font-weight:850;line-height:1.35}.scene-detail-row{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}.scene-detail-row span{padding:6px 9px;border:1px solid #64f7ff38;border-radius:999px;background:#020817d9;color:#ffe66b;font-size:9px;font-weight:950;letter-spacing:.08em;text-transform:uppercase}.stream-scene[data-scene="standby"]{border-color:#64f7ffc2}.stream-scene[data-scene="break"]{border-color:#ff58e6a0}.stream-scene[data-scene="table_reset"]{border-color:#ffe66ba0}.stream-scene[data-scene="table_reset"] .scene-kicker{color:#ffe66b;text-shadow:0 0 12px #ffe66b}.compact .stream-scene{width:min(520px,82%);padding:16px 18px;border-radius:18px}.compact .scene-title{font-size:22px}.compact .scene-subtitle{font-size:11px}.reduced .stream-scene,.reduced .stream-scene:before{animation:none!important;transition:none!important}@keyframes sceneSweep{0%,100%{transform:translateX(-38%)}50%{transform:translateX(38%)}}
 </style></head>
 <body data-connected="false" data-music="__MUSIC__" data-director="__DIRECTOR__" data-director-mode="table" data-lower-third-mode="table" data-stream-scene="live_hand" data-intensity="0" class="__REDUCED__ __AUDIO__">
@@ -739,6 +776,20 @@ class OverlayServer:
                     speaker_name=cue.get("speaker") or "Night City host",
                     voice="host",
                     kind="host",
+                )
+            )
+
+        bartender = presentation.get("bartender") or {}
+        bartender_cue = bartender.get("voice_cue") or {}
+        if bartender_cue.get("enabled") and bartender_cue.get("line"):
+            bartender_character = bartender.get("character") or {}
+            bartender_cue.update(
+                service.prepare_voice_cue(
+                    bartender_cue,
+                    speaker_id=bartender_character.get("id") or "bartender",
+                    speaker_name=bartender_cue.get("speaker") or bartender.get("speaker") or "Mira-7",
+                    voice=bartender_character.get("voice") or bartender_character.get("id") or "mira_7",
+                    kind="bartender",
                 )
             )
 

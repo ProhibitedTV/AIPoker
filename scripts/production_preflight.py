@@ -48,6 +48,8 @@ REQUIRED_OVERLAY_MARKERS = (
     "speakTableTalkCue",
     "speakBartenderCue",
     "lastBartenderVoiceKey",
+    "OBS readability pass",
+    "50% preview scale",
     "persona-card",
     "personaCardMarkup",
     "personaMoment",

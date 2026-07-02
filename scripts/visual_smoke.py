@@ -48,6 +48,8 @@ REQUIRED_OVERLAY_MARKERS = (
     "chipToPot",
     "jackpotSweep",
     "ltModuleWipe",
+    "OBS readability pass",
+    "50% preview scale",
 )
 
 

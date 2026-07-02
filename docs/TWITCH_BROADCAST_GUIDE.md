@@ -82,6 +82,7 @@ python scripts/preview_overlay.py --port 8775 --health-state audio-muted
 - [ ] `/health`, `/state`, `/events`, `/stream-info`, and `/overlay` respond locally and the health badge matches the fixture or live service state.
 - [ ] `python scripts/broadcast_smoke.py` produced fresh full and compact overlay artifacts.
 - [ ] OBS canvas and output are 1920×1080 with no safe-area clipping.
+- [ ] At 50% OBS preview scale, the board cards, current pot, active decision, player stack, and lower-third headline can be identified within 2-3 seconds.
 - [ ] The title, description, panel, and category clearly frame the stream as fictional AI entertainment.
 - [ ] The overlay simulation disclaimer is visible.
 - [ ] Ollama health or deterministic fallback status is visible and play continues during a model outage.
