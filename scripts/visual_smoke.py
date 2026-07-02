@@ -28,6 +28,7 @@ REQUIRED_OVERLAY_MARKERS = (
     "showrunner-focus",
     "playVoiceClip",
     "speakTableTalkCue",
+    "speakBartenderCue",
     "persona-card",
     "personaCardMarkup",
     "personaMoment",

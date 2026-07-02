@@ -46,6 +46,8 @@ REQUIRED_OVERLAY_MARKERS = (
     'id="voiceFlash"',
     "playVoiceClip",
     "speakTableTalkCue",
+    "speakBartenderCue",
+    "lastBartenderVoiceKey",
     "persona-card",
     "personaCardMarkup",
     "personaMoment",

@@ -26,6 +26,7 @@ CRITICAL_MARKERS = (
     "casino-room",
     "stream-scene",
     "haunt-event",
+    "speakBartenderCue",
 )
 VISUAL_FIXTURES = (
     "table",

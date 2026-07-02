@@ -6,6 +6,41 @@ import re
 
 
 PRESENTATION_SCHEMA_VERSION = 1
+BARTENDER_CHARACTER = {
+    "id": "mira_7",
+    "name": "Mira-7",
+    "role": "AI bartender",
+}
+BARTENDER_LINE_PACKS = {
+    "pre_hand": [
+        {"tone": "cyan", "line": "Fresh deal under neon. Nobody owns the room yet."},
+        {"tone": "cyan", "line": "New hand, clean glass, dirty secrets. Watch the blinds."},
+    ],
+    "all_in": [
+        {"tone": "danger", "line": "All-in light is on. Nobody breathe on the rail."},
+        {"tone": "danger", "line": "Every chip crossed the wire. Now the deck talks."},
+    ],
+    "river": [
+        {"tone": "pink", "line": "River card hits like rain on chrome. Last chance to tell the truth."},
+        {"tone": "pink", "line": "Fifth street is live. The room just got quieter."},
+    ],
+    "showdown": [
+        {"tone": "gold", "line": "Cards up. The room loves a clean reveal."},
+        {"tone": "gold", "line": "Showdown lights on. Let the best five cards speak."},
+    ],
+    "bust_out": [
+        {"tone": "danger", "line": "One model leaves the booth; the den keeps the seat warm."},
+        {"tone": "danger", "line": "Bust-out confirmed. Chrome ghosts make room at the rail."},
+    ],
+    "table_reset": [
+        {"tone": "gold", "line": "Reset sweep running. Same den, fresh ghosts."},
+        {"tone": "gold", "line": "Dealer drone scrubs the felt. Next hand loads clean."},
+    ],
+    "idle": [
+        {"tone": "blue", "line": "Mira-7 wipes the bar and watches the stack lights."},
+        {"tone": "blue", "line": "Synthetic patrons murmur. The table keeps its secrets."},
+    ],
+}
 
 
 def build_presentation_snapshot(
@@ -161,6 +196,23 @@ def build_presentation_snapshot(
         follow_message=engagement_follow_message,
         chat_prompt=engagement_chat_prompt,
     )
+    bartender = _bartender_payload(
+        players=players,
+        actor=actor,
+        winners=winners,
+        all_ins=all_ins,
+        chip_leader=chip_leader,
+        stage=stage,
+        pot=pot,
+        big_blind=big_blind,
+        tournament=tournament,
+        recap=recap,
+        scene_state=scene_state,
+        action_history=action_history,
+        commentary=commentary,
+        hand_number=hand_number,
+        voice_enabled=voice_cues_enabled,
+    )
     showrunner = _showrunner_payload(
         enabled=showrunner_enabled,
         voice_enabled=voice_cues_enabled,
@@ -205,6 +257,7 @@ def build_presentation_snapshot(
         lounge=lounge,
         casino=casino,
         hand_number=hand_number,
+        bartender=bartender,
     )
     venue = _venue_payload(lounge=lounge, casino=casino, variety=variety, hand_number=hand_number)
     return {
@@ -216,6 +269,7 @@ def build_presentation_snapshot(
         "recap": recap,
         "bumper": bumper,
         "scene_state": scene_state,
+        "bartender": bartender,
         "engagement": engagement,
         "visual_intensity": int(max(0, min(100, intensity))),
         "hand": int(hand_number or 0),
@@ -720,6 +774,87 @@ def _engagement_payload(
     }
 
 
+def _bartender_payload(
+    *,
+    players,
+    actor,
+    winners,
+    all_ins,
+    chip_leader,
+    stage,
+    pot,
+    big_blind,
+    tournament,
+    recap,
+    scene_state,
+    action_history,
+    commentary,
+    hand_number,
+    voice_enabled,
+):
+    stage_key = str(stage or "").lower()
+    reset_hint = scene_state.get("state") == "table_reset" or bool(
+        re.search(r"\b(reset|restart|reloading|restored|checkpoint)\b", " ".join(str(line) for line in (commentary or [])[-4:]), re.IGNORECASE)
+    )
+    eliminated = [player for player in players if player.get("eliminated")]
+    event_type = "idle"
+    priority = 22
+    if eliminated or tournament.get("complete"):
+        event_type = "bust_out"
+        priority = 82
+    elif winners or recap.get("visible") or stage_key == "showdown":
+        event_type = "showdown"
+        priority = 76
+    elif all_ins:
+        event_type = "all_in"
+        priority = 86
+    elif stage_key == "river":
+        event_type = "river"
+        priority = 58
+    elif reset_hint:
+        event_type = "table_reset"
+        priority = 70
+    elif stage_key in {"pre-flop", "waiting"} and len(action_history or []) <= 2:
+        event_type = "pre_hand"
+        priority = 42
+
+    line_pack = BARTENDER_LINE_PACKS.get(event_type) or BARTENDER_LINE_PACKS["idle"]
+    seed = int(hand_number or 0) + len(action_history or []) + int((pot or 0) / max(1, int(big_blind or 1)))
+    selected = line_pack[seed % len(line_pack)]
+    line = _safe_engagement_text(selected.get("line"), "", 96)
+    enabled = bool(line and (event_type != "idle" or int(hand_number or 0) % 4 == 0))
+    speaker = BARTENDER_CHARACTER["name"]
+    cue_id = f"bartender|{event_type}|{int(hand_number or 0)}|{seed % len(line_pack)}"
+    return {
+        "schema_version": 1,
+        "enabled": enabled,
+        "character": BARTENDER_CHARACTER,
+        "speaker": speaker,
+        "event_type": event_type,
+        "line": line if enabled else "",
+        "tone": selected.get("tone", "blue"),
+        "priority": priority,
+        "cooldown_hands": 2,
+        "context": {
+            "actor": (actor or {}).get("name", ""),
+            "all_in": [player.get("name", "AI") for player in all_ins],
+            "winners": [player.get("name", "AI") for player in winners],
+            "chip_leader": (chip_leader or {}).get("name", ""),
+            "pot": int(pot or 0),
+        },
+        "voice_cue": {
+            "enabled": bool(enabled and voice_enabled),
+            "id": cue_id,
+            "speaker": speaker,
+            "line": line if enabled and voice_enabled else "",
+            "caption": f"{speaker}: {line}" if enabled and voice_enabled else "",
+            "priority": priority,
+            "duration_ms": 3400 if priority < 80 else 4300,
+            "ducking": 0.28 if priority < 80 else 0.44,
+        },
+    }
+
+
 def _showrunner_payload(
     *,
     enabled,
@@ -863,6 +998,7 @@ def _lower_third_payload(
     lounge,
     casino,
     hand_number,
+    bartender,
 ):
     casino = casino or {}
     casino_game = str(casino.get("active_game") or "poker")
@@ -932,6 +1068,7 @@ def _lower_third_payload(
         lounge=lounge,
         casino=casino,
         hand_number=hand_number,
+        bartender=bartender,
     )
     return {
         "schema_version": 1,
@@ -1145,6 +1282,7 @@ def _spectator_ticker_events(
     lounge,
     casino,
     hand_number,
+    bartender,
 ):
     events = []
     stage_key = str(stage or "").lower()
@@ -1226,6 +1364,15 @@ def _spectator_ticker_events(
         else:
             add("LIVE", text, "normal", "commentary", 34)
 
+    if (bartender or {}).get("enabled") and (bartender or {}).get("line"):
+        add(
+            (bartender.get("speaker") or "BAR").upper(),
+            f"{bartender.get('speaker', 'Mira-7')}: {bartender.get('line')}",
+            "flavor",
+            "bartender",
+            int(bartender.get("priority", 24) or 24),
+        )
+
     for flavor in _haunt_flavor_events(
         hand_number=hand_number,
         active_hand=active_hand,
@@ -1304,6 +1451,7 @@ def _lower_third_ticker_items(players, action_history, commentary):
             lounge={},
             casino={},
             hand_number=0,
+            bartender={},
         )
     ]
 

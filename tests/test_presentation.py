@@ -81,6 +81,9 @@ def test_presentation_table_mode_when_no_one_is_acting():
     assert result["scene_state"]["schema_version"] == 1
     assert result["scene_state"]["state"] == "live_hand"
     assert result["scene_state"]["visible"] is False
+    assert result["bartender"]["schema_version"] == 1
+    assert result["bartender"]["character"]["name"] == "Mira-7"
+    assert result["bartender"]["event_type"] in {"pre_hand", "idle"}
 
 
 def test_stream_scene_states_cover_standby_break_and_table_reset():
@@ -122,6 +125,24 @@ def test_spectator_ticker_prioritizes_poker_events_over_flavor():
     assert events[0]["priority"] > events[-1]["priority"]
     assert any(event["severity"] == "flavor" for event in events)
     assert all(len(event["text"]) <= 116 for event in events)
+
+
+def test_bartender_banter_tracks_major_moments_and_voice_cooldown_ids():
+    players = base_players()
+    players[0]["all_in"] = True
+    first = snapshot(players, pot=1000, hand_number=1)
+    second = snapshot(players, pot=1000, hand_number=2)
+
+    assert first["bartender"]["enabled"]
+    assert first["bartender"]["event_type"] == "all_in"
+    assert first["bartender"]["voice_cue"]["enabled"]
+    assert first["bartender"]["voice_cue"]["id"] != second["bartender"]["voice_cue"]["id"]
+    assert len(first["bartender"]["line"]) <= 96
+    assert any(event["type"] == "bartender" for event in first["lower_third"]["ticker_events"])
+
+    muted = snapshot(players, pot=1000, hand_number=1, voice_cues_enabled=False)
+    assert muted["bartender"]["enabled"]
+    assert not muted["bartender"]["voice_cue"]["enabled"]
 
 
 def test_spectator_ticker_covers_results_eliminations_and_resets():
