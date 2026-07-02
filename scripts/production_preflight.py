@@ -35,6 +35,8 @@ REQUIRED_OVERLAY_MARKERS = (
     'id="lowerThird"',
     'data-lower-third-mode="table"',
     "renderLowerThird",
+    "renderHauntTicker",
+    "haunt-event",
     "body.lower-third-on .ticker.lower-third",
     'id="venueChip"',
     "venueThemeOn",

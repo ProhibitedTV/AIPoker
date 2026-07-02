@@ -25,6 +25,7 @@ CRITICAL_MARKERS = (
     "Program warming up",
     "casino-room",
     "stream-scene",
+    "haunt-event",
 )
 VISUAL_FIXTURES = (
     "table",
