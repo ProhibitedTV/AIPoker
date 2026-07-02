@@ -17,6 +17,8 @@ REQUIRED_OVERLAY_MARKERS = (
     "lower-third",
     "data-lower-third-mode",
     "renderLowerThird",
+    "renderHauntTicker",
+    "haunt-event",
     "lt-module",
     "hud-minimal",
     "body.lower-third-on .ticker.lower-third",

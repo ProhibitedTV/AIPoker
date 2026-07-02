@@ -204,6 +204,7 @@ def build_presentation_snapshot(
         variety=variety,
         lounge=lounge,
         casino=casino,
+        hand_number=hand_number,
     )
     venue = _venue_payload(lounge=lounge, casino=casino, variety=variety, hand_number=hand_number)
     return {
@@ -861,6 +862,7 @@ def _lower_third_payload(
     variety,
     lounge,
     casino,
+    hand_number,
 ):
     casino = casino or {}
     casino_game = str(casino.get("active_game") or "poker")
@@ -913,6 +915,24 @@ def _lower_third_payload(
     active_module = "casino" if display_mode == "casino_room" else "winner" if display_mode == "winner" else "decision" if actor else "equity" if all_ins or display_mode == "showdown" else "pot"
     if not any(module.get("id") == active_module for module in modules):
         active_module = modules[0]["id"] if modules else ""
+    ticker_events = _spectator_ticker_events(
+        players=players,
+        action_history=action_history,
+        commentary=commentary,
+        stage=stage,
+        pot=pot,
+        big_blind=big_blind,
+        winners=winners,
+        all_ins=all_ins,
+        actor=actor,
+        tournament=tournament,
+        recap=recap,
+        program=program,
+        variety=variety,
+        lounge=lounge,
+        casino=casino,
+        hand_number=hand_number,
+    )
     return {
         "schema_version": 1,
         "mode": display_mode,
@@ -921,7 +941,8 @@ def _lower_third_payload(
         "subhead": _safe_engagement_text(explainer, "The next key beat will appear here.", 150),
         "modules": modules,
         "active_module": active_module,
-        "ticker_items": _lower_third_ticker_items(players, action_history, commentary),
+        "ticker_items": [event["text"] for event in ticker_events],
+        "ticker_events": ticker_events,
         "priority": priority,
         "duration_ms": 8500 if priority < 80 else 6800,
     }
@@ -1106,22 +1127,198 @@ def _lower_third_modules(
     return modules[:8]
 
 
-def _lower_third_ticker_items(players, action_history, commentary):
-    items = []
-    for action in list(action_history or [])[-4:]:
-        seat = action.get("seat")
-        player = next((item for item in players if item.get("seat") == seat), None)
-        name = (player or {}).get("name") or f"Seat {seat}"
+def _spectator_ticker_events(
+    *,
+    players,
+    action_history,
+    commentary,
+    stage,
+    pot,
+    big_blind,
+    winners,
+    all_ins,
+    actor,
+    tournament,
+    recap,
+    program,
+    variety,
+    lounge,
+    casino,
+    hand_number,
+):
+    events = []
+    stage_key = str(stage or "").lower()
+    active_hand = bool(actor or all_ins or stage_key not in {"waiting", "standby", "loading"})
+
+    def add(label, text, severity="normal", event_type="poker", priority=30):
+        text = _safe_engagement_text(text, "", 116)
+        if not text:
+            return
+        events.append(
+            {
+                "type": str(event_type or "poker")[:24],
+                "severity": str(severity or "normal")[:24],
+                "label": str(label or "LIVE")[:18].upper(),
+                "text": text,
+                "priority": int(priority or 0),
+            }
+        )
+
+    for action in list(action_history or [])[-8:]:
+        action_name = str(action.get("action") or "")
+        player = _player_for_seat(players, action.get("seat"))
+        name = (player or {}).get("name") or f"Seat {action.get('seat')}"
         amount = int(action.get("amount", 0) or 0)
-        copy = f"{name} {_plain_action(action.get('action'))}"
+        copy = f"{name} {_plain_action(action_name)}"
         if amount:
             copy = f"{copy} {amount:,}"
-        items.append(copy)
-    for line in list(commentary or [])[-2:]:
-        text = _safe_engagement_text(line, "", 110)
-        if text and text not in items:
-            items.append(text)
-    return items[-5:]
+        if action_name == "all_in":
+            add("ALL-IN", copy, "all_in", "action", 92)
+        elif action_name in {"raise", "bet"}:
+            add("PRESSURE", copy, "major", "action", 72)
+        elif action_name in {"call", "fold", "check"}:
+            add("ACTION", copy, "normal", "action", 46)
+        else:
+            add("POSTED", copy, "normal", "action", 24)
+
+    if all_ins:
+        names = " + ".join(player.get("name", "AI") for player in all_ins)
+        add("ALL-IN", f"{names} has every chip committed; the rail is locked on the runout.", "all_in", "all_in", 94)
+
+    if winners:
+        names = " + ".join(player.get("name", "Winner") for player in winners)
+        amount = int(recap.get("amount", 0) or 0)
+        hand = recap.get("hand") or "the winning hand"
+        verb = "split" if len(winners) > 1 else "wins"
+        add("WINNER", f"{names} {verb} {amount:,} with {hand}.", "showdown", "winner", 98)
+    elif stage_key == "showdown":
+        add("SHOWDOWN", "Cards are exposed; best five-card hand takes each eligible pot.", "showdown", "street", 86)
+
+    if stage_key in {"flop", "turn", "river"}:
+        street_copy = {
+            "flop": "Three shared cards hit the neon felt.",
+            "turn": "Fourth street is live; one river card can swing the room.",
+            "river": "Final shared card is down; this is the last decision point.",
+        }[stage_key]
+        add("STREET", street_copy, "major" if int(pot or 0) >= max(1, int(big_blind or 1)) * 10 else "normal", "street", 62)
+
+    eliminated = [player for player in players if player.get("eliminated")]
+    for player in eliminated[-2:]:
+        add("OUT", f"{player.get('name', 'A model')} is eliminated; the table closes ranks.", "major", "model", 78)
+
+    latest = " ".join(str(line) for line in list(commentary or [])[-4:])
+    if re.search(r"\b(reset|restart|reloading|restored|checkpoint)\b", latest, re.IGNORECASE):
+        add("RESET", "Table reset in progress; seats, stacks, and deck state are being verified.", "major", "reset", 84)
+
+    for line in list(commentary or [])[-4:]:
+        text = _safe_engagement_text(line, "", 112)
+        if not text:
+            continue
+        lowered = text.lower()
+        if "all-in" in lowered or "all in" in lowered:
+            add("ALL-IN", text, "all_in", "commentary", 90)
+        elif re.search(r"\b(wins?|share|awarded)\b", lowered):
+            add("RESULT", text, "showdown", "commentary", 88)
+        elif re.search(r"\b(eliminated|bust|out)\b", lowered):
+            add("OUT", text, "major", "commentary", 78)
+        elif ":" in text:
+            add("TABLE TALK", text, "flavor", "talk", 28)
+        else:
+            add("LIVE", text, "normal", "commentary", 34)
+
+    for flavor in _haunt_flavor_events(
+        hand_number=hand_number,
+        active_hand=active_hand,
+        program=program,
+        variety=variety,
+        lounge=lounge,
+        casino=casino,
+    ):
+        add(flavor["label"], flavor["text"], "flavor", "flavor", flavor["priority"])
+
+    seen = set()
+    compact = []
+    for index, event in enumerate(events):
+        key = event["text"].lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        compact.append({**event, "_order": index})
+    compact.sort(key=lambda event: (-event["priority"], event["_order"]))
+    return [{key: value for key, value in event.items() if key != "_order"} for event in compact[:6]]
+
+
+def _haunt_flavor_events(*, hand_number, active_hand, program, variety, lounge, casino):
+    priority = 12 if active_hand else 24
+    events = []
+    if (lounge or {}).get("enabled"):
+        events.append(
+            {
+                "label": "LOUNGE",
+                "text": lounge.get("atmosphere_line") or lounge.get("table_mood") or "Synthetic lounge lights ripple behind the table.",
+                "priority": priority + 4,
+            }
+        )
+    if (casino or {}).get("enabled") and str(casino.get("active_game") or "poker") != "poker":
+        block = casino.get("program_block") if isinstance(casino.get("program_block"), dict) else {}
+        events.append(
+            {
+                "label": "ROOM",
+                "text": block.get("viewer_hook") or "A side-room camera opens for AI-only fictional bankroll drama.",
+                "priority": priority + 3,
+            }
+        )
+    rotation = [
+        ("RAIL", "A synthetic patron slips into the rail glow and watches the pot."),
+        ("BAR", "Bartender bot mixes neon tonic while the next decision loads."),
+        ("SCAN", "Security scan sweeps the back room; the table stays live."),
+        ("CITY", "Rainline chatter spikes under the holographic skyline."),
+        ("DEALER", "Dealer drone hums softly over the felt."),
+    ]
+    label, text = rotation[int(hand_number or 0) % len(rotation)]
+    if variety.get("title"):
+        text = f"{variety.get('title')} ambience: {text}"
+    elif program.get("segment"):
+        text = f"{program.get('segment')}: {text}"
+    events.append({"label": label, "text": text, "priority": priority})
+    return events[:2]
+
+
+def _lower_third_ticker_items(players, action_history, commentary):
+    return [
+        event["text"]
+        for event in _spectator_ticker_events(
+            players=players,
+            action_history=action_history,
+            commentary=commentary,
+            stage="",
+            pot=0,
+            big_blind=1,
+            winners=[],
+            all_ins=[],
+            actor=None,
+            tournament={},
+            recap={},
+            program={},
+            variety={},
+            lounge={},
+            casino={},
+            hand_number=0,
+        )
+    ]
+
+
+def _player_for_seat(players, seat):
+    for player in players or []:
+        if player.get("seat") == seat:
+            return player
+    try:
+        index = int(seat)
+    except (TypeError, ValueError):
+        return None
+    if 0 <= index < len(players or []):
+        return list(players or [])[index]
+    return None
 
 
 def _plain_action(action):

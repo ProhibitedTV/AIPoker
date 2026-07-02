@@ -68,6 +68,8 @@ def test_presentation_table_mode_when_no_one_is_acting():
     assert result["lower_third"]["kicker"] == "LIVE TABLE"
     assert result["lower_third"]["active_module"] == "pot"
     assert any(module["id"] == "standings" for module in result["lower_third"]["modules"])
+    assert result["lower_third"]["ticker_events"]
+    assert result["lower_third"]["ticker_events"][0]["severity"] in {"normal", "flavor"}
     assert result["profile_signals"]["vega"]["risk_appetite"] == 78
     assert result["engagement"]["enabled"]
     assert "Call out the next winner" in result["engagement"]["prompt"]
@@ -101,6 +103,43 @@ def test_stream_scene_states_cover_standby_break_and_table_reset():
     reset = snapshot(stage="Waiting", hand_number=9, pot=0, commentary=["Tournament table reset begins."])
     assert reset["scene_state"]["state"] == "table_reset"
     assert reset["scene_state"]["visible"] is True
+
+
+def test_spectator_ticker_prioritizes_poker_events_over_flavor():
+    players = base_players()
+    players[0]["all_in"] = True
+    result = snapshot(
+        players,
+        pot=1000,
+        action_history=[
+            {"seat": 0, "action": "call", "amount": 20},
+            {"seat": 1, "action": "all_in", "amount": 1800},
+        ],
+        commentary=["Bartender bot checks the neon rail."],
+    )
+    events = result["lower_third"]["ticker_events"]
+    assert events[0]["severity"] == "all_in"
+    assert events[0]["priority"] > events[-1]["priority"]
+    assert any(event["severity"] == "flavor" for event in events)
+    assert all(len(event["text"]) <= 116 for event in events)
+
+
+def test_spectator_ticker_covers_results_eliminations_and_resets():
+    players = base_players()
+    players[0]["action"] = "Won 480"
+    players[1]["eliminated"] = True
+    result = snapshot(
+        players,
+        stage="Showdown",
+        pot=0,
+        commentary=["Atlas wins 480 with Uncontested.", "Tournament table reset begins."],
+    )
+    events = result["lower_third"]["ticker_events"]
+    assert events[0]["type"] == "winner"
+    assert events[0]["severity"] == "showdown"
+    assert any(event["label"] == "OUT" for event in events)
+    assert any(event["label"] == "RESET" for event in events)
+    assert result["lower_third"]["ticker_items"] == [event["text"] for event in events]
 
 
 def test_presentation_venue_theme_uses_public_lounge_location():
